@@ -1,0 +1,62 @@
+name: Build and Publish Asciidoc HTML
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'adoc/**.adoc'
+      - '.github/workflows/asciidoctor.yml'
+  pull_request:
+    paths:
+      - 'adoc/**.adoc'
+      - '.github/workflows/asciidoctor.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install Asciidoctor
+        run: gem install asciidoctor
+
+      - name: Build HTML from Asciidoc files
+        run: |
+          mkdir -p build/html
+          for file in adoc/*.adoc; do
+            asciidoctor -o build/html/$(basename "${file%.adoc}.html") "$file"
+          done
+
+      - name: Upload HTML artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: asciidoc-html
+          path: build/html/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download built HTML
+        uses: actions/download-artifact@v4
+        with:
+          name: asciidoc-html
+          path: build/html/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/html
