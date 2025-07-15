@@ -1,0 +1,3877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 2.0.23">
+<title>Memory and Thread Placement Optimization Developer&#8217;s Guide</title>
+<style>
+/*
+ * Modern Light/Dark Mode Stylesheet for illumos Documentation
+ * Pure CSS solution with automatic theme switching based on system preferences
+ * Responsive design for all devices
+ */
+
+/* ==================== CSS CUSTOM PROPERTIES (VARIABLES) ==================== */
+
+:root {
+  /* Light mode colors (default) */
+  --bg-color: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+  --text-color: #212529;
+  --text-secondary: #6c757d;
+  --text-muted: #868e96;
+  --border-color: #dee2e6;
+  --border-secondary: #e9ecef;
+  --link-color: #0d6efd;
+  --link-hover: #0a58ca;
+  --link-visited: #6f42c1;
+  
+  /* Code highlighting */
+  --code-bg: #f8f9fa;
+  --code-border: #e9ecef;
+  --code-text: #0033b3;
+  --code-block-bg: #fafbfc;
+  --code-block-border: #d1d9e0;
+  
+  /* Admonition colors */
+  --note-bg: #cff4fc;
+  --note-border: #0dcaf0;
+  --warning-bg: #fff3cd;
+  --warning-border: #ffc107;
+  --important-bg: #f8d7da;
+  --important-border: #dc3545;
+  --tip-bg: #d1e7dd;
+  --tip-border: #198754;
+  --caution-bg: #fff3cd;
+  --caution-border: #fd7e14;
+  
+  /* Table colors */
+  --table-bg: #ffffff;
+  --table-stripe: #f8f9fa;
+  --table-border: #dee2e6;
+  --table-header-bg: #e9ecef;
+  
+  /* TOC colors */
+  --toc-bg: #f8f9fa;
+  --toc-border: #dee2e6;
+  --toc-link: #495057;
+  --toc-link-hover: #0d6efd;
+  
+  /* Shadow and focus */
+  --shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  --shadow-lg: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  --focus-ring: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  
+  /* Typography */
+  --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family-mono: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-size-base: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+  --line-height-base: 1.6;
+  
+  /* Spacing */
+  --content-max-width: 75rem;
+  --toc-width: 16rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}
+
+/* Dark mode colors */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --bg-tertiary: #404040;
+    --text-color: #e9ecef;
+    --text-secondary: #adb5bd;
+    --text-muted: #6c757d;
+    --border-color: #495057;
+    --border-secondary: #404040;
+    --link-color: #6ea8fe;
+    --link-hover: #9ec5fe;
+    --link-visited: #b8a9ff;
+    
+    /* Code highlighting for dark mode */
+    --code-bg: #2b2b2b;
+    --code-border: #4a4a4a;
+    --code-text: #569cd6;
+    --code-block-bg: #1e1e1e;
+    --code-block-border: #3e3e3e;
+    
+    /* Admonition colors for dark mode */
+    --note-bg: #1f4a54;
+    --note-border: #0dcaf0;
+    --warning-bg: #4a3728;
+    --warning-border: #ffc107;
+    --important-bg: #4a2628;
+    --important-border: #dc3545;
+    --tip-bg: #1e3a28;
+    --tip-border: #198754;
+    --caution-bg: #4a3728;
+    --caution-border: #fd7e14;
+    
+    /* Table colors for dark mode */
+    --table-bg: #2d2d2d;
+    --table-stripe: #404040;
+    --table-border: #495057;
+    --table-header-bg: #404040;
+    
+    /* TOC colors for dark mode */
+    --toc-bg: #2d2d2d;
+    --toc-border: #495057;
+    --toc-link: #adb5bd;
+    --toc-link-hover: #6ea8fe;
+    
+    /* Shadow for dark mode */
+    --shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 0.5rem 1rem rgba(0, 0, 0, 0.4);
+    --focus-ring: 0 0 0 0.25rem rgba(110, 168, 254, 0.25);
+  }
+}
+
+/* ==================== BASE STYLES ==================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ==================== LAYOUT ==================== */
+
+.container {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--spacing-md);
+}
+
+/* Main content area */
+#content {
+  max-width: none;
+  margin-right: var(--spacing-xl);
+  padding-right: var(--spacing-lg);
+}
+
+/* Content when TOC is on left side */
+body.toc2.toc-left #content {
+  margin-right: var(--spacing-xl);
+  padding-right: var(--spacing-xl);
+}
+
+/* ==================== TYPOGRAPHY ==================== */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: calc(var(--spacing-xl) * 1.5);
+  margin-bottom: var(--spacing-lg);
+  margin-right: var(--spacing-md);
+  color: var(--text-color);
+  letter-spacing: -0.02em;
+  position: relative;
+}
+
+/* Make heading text clickable for easy linking */
+h1[id]:hover, h2[id]:hover, h3[id]:hover, h4[id]:hover, h5[id]:hover, h6[id]:hover {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--link-color);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+h1 {
+  font-size: clamp(2rem, 2.2rem + 1vw, 2.8rem);
+  font-weight: 800;
+  border-bottom: 3px solid var(--border-color);
+  padding-bottom: var(--spacing-md);
+  margin-top: 0;
+  margin-bottom: var(--spacing-xl);
+}
+
+h2 {
+  font-size: clamp(1.6rem, 1.8rem + 0.5vw, 2.2rem);
+  font-weight: 700;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: var(--spacing-sm);
+  margin-top: calc(var(--spacing-xl) * 2);
+}
+
+h3 {
+  font-size: clamp(1.4rem, 1.5rem + 0.3vw, 1.8rem);
+  font-weight: 650;
+  border-left: 4px solid var(--border-color);
+  padding-left: var(--spacing-md);
+  margin-top: calc(var(--spacing-xl) * 1.5);
+}
+
+h4 {
+  font-size: clamp(1.2rem, 1.3rem + 0.2vw, 1.5rem);
+  font-weight: 650;
+  color: var(--text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px dotted var(--border-color);
+  padding-bottom: 0.25rem;
+}
+
+h5 {
+  font-size: clamp(1.1rem, 1.15rem + 0.1vw, 1.3rem);
+  font-weight: 600;
+  font-style: italic;
+}
+
+h6 {
+  font-size: clamp(1rem, 1.05rem + 0.1vw, 1.2rem);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+p {
+  margin-bottom: var(--spacing-md);
+  margin-right: var(--spacing-md);
+}
+
+/* ==================== LINKS ==================== */
+
+a {
+  color: var(--link-color);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
+a:visited {
+  color: var(--link-visited);
+}
+
+a:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 0.25rem;
+}
+
+/* ==================== CODE BLOCKS ==================== */
+
+code {
+  font-family: var(--font-family-mono);
+  font-size: 0.9em;
+  color: var(--code-text);
+  background-color: var(--code-bg);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--code-border);
+}
+
+pre {
+  font-family: var(--font-family-mono);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  background-color: var(--code-block-bg);
+  color: var(--text-color);
+  border: 1px solid var(--code-block-border);
+  border-radius: 0.5rem;
+  padding: var(--spacing-md);
+  margin: var(--spacing-md) var(--spacing-md) var(--spacing-md) 0;
+  overflow-x: auto;
+  box-shadow: var(--shadow);
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* ==================== SYNTAX HIGHLIGHTING ==================== */
+
+/* Base highlighting for light mode */
+.hljs {
+  background-color: var(--code-block-bg) !important;
+  color: var(--text-color) !important;
+}
+
+/* Light mode syntax highlighting */
+:root {
+  --hl-keyword: #0033b3;          /* Keywords: blue */
+  --hl-string: #067d17;           /* Strings: green */
+  --hl-comment: #808080;          /* Comments: gray */
+  --hl-number: #1750eb;           /* Numbers: blue */
+  --hl-type: #800080;             /* Types: purple */
+  --hl-function: #000080;         /* Functions: dark blue */
+  --hl-variable: #660e7a;         /* Variables: dark purple */
+  --hl-preprocessor: #808000;     /* Preprocessor: olive */
+  --hl-operator: #000000;         /* Operators: black */
+  --hl-literal: #0000ff;          /* Literals: blue */
+}
+
+/* Dark mode syntax highlighting */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hl-keyword: #569cd6;        /* Keywords: light blue */
+    --hl-string: #9cdcfe;         /* Strings: light cyan */
+    --hl-comment: #6a9955;        /* Comments: green */
+    --hl-number: #b5cea8;         /* Numbers: light green */
+    --hl-type: #4ec9b0;           /* Types: teal */
+    --hl-function: #dcdcaa;       /* Functions: yellow */
+    --hl-variable: #9cdcfe;       /* Variables: light cyan */
+    --hl-preprocessor: #c586c0;   /* Preprocessor: light purple */
+    --hl-operator: #d4d4d4;       /* Operators: light gray */
+    --hl-literal: #d69d85;        /* Literals: orange */
+  }
+}
+
+/* Highlight.js C/C++ syntax highlighting */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in {
+  color: var(--hl-keyword) !important;
+  font-weight: 600;
+}
+
+.hljs-string,
+.hljs-attribute {
+  color: var(--hl-string) !important;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--hl-comment) !important;
+  font-style: italic;
+}
+
+.hljs-number,
+.hljs-literal {
+  color: var(--hl-number) !important;
+}
+
+.hljs-type,
+.hljs-class .hljs-title {
+  color: var(--hl-type) !important;
+  font-weight: 600;
+}
+
+.hljs-function .hljs-title,
+.hljs-title.function_ {
+  color: var(--hl-function) !important;
+  font-weight: 600;
+}
+
+.hljs-variable,
+.hljs-name {
+  color: var(--hl-variable) !important;
+}
+
+.hljs-meta,
+.hljs-preprocessor {
+  color: var(--hl-preprocessor) !important;
+  font-weight: 600;
+}
+
+.hljs-operator,
+.hljs-punctuation {
+  color: var(--hl-operator) !important;
+}
+
+/* DTrace-specific highlighting */
+.hljs-dtrace-probe,
+.hljs-dtrace-builtin {
+  color: var(--hl-function) !important;
+  font-weight: 600;
+}
+
+/* Additional C-specific tokens */
+.hljs-params {
+  color: var(--text-color) !important;
+}
+
+.hljs-title {
+  color: var(--hl-function) !important;
+  font-weight: 600;
+}
+
+/* Ensure good contrast for inline code */
+code:not(.hljs) {
+  color: var(--hl-keyword) !important;
+  background-color: var(--code-bg) !important;
+  font-weight: 500;
+}
+
+/* Fallback for code blocks without syntax highlighting */
+pre:not(.hljs) {
+  color: var(--text-color) !important;
+  background-color: var(--code-block-bg) !important;
+}
+
+/* Improve readability for unstyled code blocks */
+pre code:not(.hljs) {
+  color: var(--text-color) !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* ==================== TABLES ==================== */
+
+table {
+  width: calc(100% - 2 * var(--spacing-md));
+  border-collapse: collapse;
+  margin: var(--spacing-md) var(--spacing-md);
+  background-color: var(--table-bg);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--table-border);
+}
+
+th, td {
+  padding: calc(var(--spacing-sm) * 0.75) var(--spacing-sm);
+  text-align: left;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+}
+
+th:last-child,
+td:last-child {
+  border-right: none;
+}
+
+th {
+  background-color: var(--table-header-bg);
+  font-weight: 600;
+  color: var(--text-color);
+  border-bottom: 2px solid var(--table-border);
+}
+
+tbody tr:nth-child(even) {
+  background-color: var(--table-stripe);
+}
+
+tbody tr:hover {
+  background-color: var(--bg-tertiary);
+}
+
+/* Lists inside table cells - reduce spacing */
+td ul, td ol, th ul, th ol {
+  margin: var(--spacing-sm) 0;
+  padding-left: var(--spacing-lg);
+}
+
+td li, th li {
+  margin: calc(var(--spacing-sm) * 0.25) 0;
+}
+
+/* Paragraphs in table cells - reduce spacing */
+td p, th p {
+  margin-bottom: calc(var(--spacing-sm) * 0.5);
+  margin-right: 0;
+}
+
+/* ==================== TABLE OF CONTENTS ==================== */
+
+#toc {
+  background-color: var(--toc-bg);
+  border: 1px solid var(--toc-border);
+  border-radius: 0.5rem;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: var(--shadow);
+  position: relative;
+}
+
+#toc .title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: calc(var(--spacing-sm) * 0.5);
+  color: var(--text-color);
+}
+
+#toc ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+#toc ul ul {
+  padding-left: calc(var(--spacing-md) * 0.75);
+  margin-top: calc(var(--spacing-sm) * 0.25);
+}
+
+#toc li {
+  margin: calc(var(--spacing-sm) * 0.25) 0;
+}
+
+#toc a {
+  color: var(--toc-link);
+  text-decoration: none;
+  display: block;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+#toc a:hover {
+  color: var(--toc-link-hover);
+  background-color: var(--bg-tertiary);
+  text-decoration: none;
+}
+
+/* Active/Current section highlighting */
+#toc a.active {
+  color: var(--link-color);
+  background-color: var(--link-color);
+  background-color: color-mix(in srgb, var(--link-color) 15%, transparent);
+  font-weight: 600;
+  border-left: 3px solid var(--link-color);
+  padding-left: calc(0.375rem - 3px);
+}
+
+@media (prefers-color-scheme: dark) {
+  #toc a.active {
+    background-color: color-mix(in srgb, var(--link-color) 20%, transparent);
+  }
+}
+
+/* Target section highlighting */
+:target {
+  scroll-margin-top: var(--spacing-xl);
+  animation: highlight-target 2s ease-out;
+}
+
+@keyframes highlight-target {
+  0% {
+    background-color: color-mix(in srgb, var(--link-color) 20%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Smooth scrolling enhancement */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--spacing-xl);
+}
+
+/* Progressive enhancement for scroll-spy */
+body.js-enabled #toc a {
+  transition: all 0.2s ease;
+}
+
+body.js-enabled #toc a.active {
+  transform: translateX(2px);
+}
+
+/* Parent section highlighting for nested TOC */
+#toc a.active-parent {
+  color: var(--toc-link-hover);
+  font-weight: 500;
+  background-color: color-mix(in srgb, var(--link-color) 8%, transparent);
+}
+
+/* Fallback for browsers without color-mix support */
+@supports not (background-color: color-mix(in srgb, blue 15%, transparent)) {
+  #toc a.active {
+    background-color: var(--link-hover);
+    background-color: rgba(13, 110, 253, 0.15);
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    #toc a.active {
+      background-color: rgba(110, 168, 254, 0.2);
+    }
+  }
+  
+  #toc a.active-parent {
+    background-color: rgba(13, 110, 253, 0.08);
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    #toc a.active-parent {
+      background-color: rgba(110, 168, 254, 0.1);
+    }
+  }
+}
+
+/* Left TOC layout for larger screens */
+@media (min-width: 1200px) {
+  body.toc2.toc-left {
+    padding-left: calc(var(--toc-width) + var(--spacing-lg));
+  }
+  
+  #toc.toc2 {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: var(--toc-width);
+    height: 100vh;
+    overflow-y: auto;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    z-index: 1000;
+  }
+}
+
+/* ==================== ADMONITIONS ==================== */
+
+.admonitionblock {
+  margin: var(--spacing-lg) var(--spacing-md);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.admonitionblock table {
+  margin: 0;
+  box-shadow: none;
+  width: 100%;
+  border: none;
+  border-radius: 0;
+}
+
+.admonitionblock td.icon {
+  display: none;
+}
+
+.admonitionblock td.content {
+  padding: var(--spacing-md);
+  border: none;
+  border-bottom: none;
+  border-right: none;
+}
+
+/* Note */
+.admonitionblock.note {
+  background-color: var(--note-bg);
+  border-left: 4px solid var(--note-border);
+}
+
+/* Warning */
+.admonitionblock.warning {
+  background-color: var(--warning-bg);
+  border-left: 4px solid var(--warning-border);
+}
+
+/* Important */
+.admonitionblock.important {
+  background-color: var(--important-bg);
+  border-left: 4px solid var(--important-border);
+}
+
+/* Tip */
+.admonitionblock.tip {
+  background-color: var(--tip-bg);
+  border-left: 4px solid var(--tip-border);
+}
+
+/* Caution */
+.admonitionblock.caution {
+  background-color: var(--caution-bg);
+  border-left: 4px solid var(--caution-border);
+}
+
+/* ==================== LISTS ==================== */
+
+ul, ol {
+  padding-left: var(--spacing-xl);
+  margin: var(--spacing-md) var(--spacing-md) var(--spacing-md) 0;
+}
+
+li {
+  margin: var(--spacing-sm) 0;
+}
+
+dt {
+  font-weight: 600;
+  margin-top: var(--spacing-md);
+  color: var(--text-color);
+}
+
+dd {
+  margin-left: var(--spacing-xl);
+  margin-bottom: var(--spacing-md);
+}
+
+/* ==================== BLOCKQUOTES ==================== */
+
+blockquote {
+  border-left: 4px solid var(--border-color);
+  margin: var(--spacing-lg) var(--spacing-md) var(--spacing-lg) 0;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--bg-secondary);
+  font-style: italic;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+/* ==================== IMAGES AND FIGURES ==================== */
+
+img {
+  max-width: 80%;
+  width: auto;
+  height: auto;
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow);
+  margin: var(--spacing-md) auto;
+  display: block;
+}
+
+.imageblock {
+  text-align: center;
+  margin: var(--spacing-lg) 0;
+}
+
+.imageblock .title {
+  font-style: italic;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-sm);
+}
+
+/* ==================== RESPONSIVE DESIGN ==================== */
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding: var(--spacing-sm);
+  }
+  
+  #content {
+    margin-right: var(--spacing-md);
+    padding-right: var(--spacing-sm);
+  }
+  
+  body.toc2.toc-left #content {
+    margin-right: var(--spacing-md);
+    padding-right: var(--spacing-sm);
+  }
+  
+  h1 {
+    font-size: 1.8rem;
+    margin-right: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-sm);
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+    margin-right: var(--spacing-sm);
+    margin-top: var(--spacing-xl);
+    padding: var(--spacing-sm);
+  }
+  
+  h3 {
+    font-size: 1.3rem;
+    margin-top: var(--spacing-lg);
+    padding-left: var(--spacing-sm);
+  }
+  
+  h4 {
+    font-size: 1.1rem;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    margin-right: var(--spacing-sm);
+  }
+  
+  p {
+    margin-right: var(--spacing-sm);
+  }
+  
+  pre {
+    font-size: 0.8rem;
+    padding: var(--spacing-sm);
+    margin-right: var(--spacing-sm);
+  }
+  
+  ul, ol {
+    margin-right: var(--spacing-sm);
+  }
+  
+  blockquote {
+    margin-right: var(--spacing-sm);
+  }
+  
+  table {
+    font-size: 0.9rem;
+    width: calc(100% - 2 * var(--spacing-sm));
+    margin: var(--spacing-md) var(--spacing-sm);
+  }
+  
+  th, td {
+    padding: calc(var(--spacing-sm) * 0.5) calc(var(--spacing-sm) * 0.75);
+  }
+  
+  #toc {
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .admonitionblock {
+    margin: var(--spacing-md) var(--spacing-sm);
+  }
+  
+  .admonitionblock td.icon {
+    display: none;
+  }
+  
+  .admonitionblock td.content {
+    padding: var(--spacing-sm);
+    border: none;
+  }
+  
+  .admonitionblock table {
+    margin: 0;
+    width: 100%;
+  }
+  
+  /* Even more compact lists in table cells on mobile */
+  td ul, td ol, th ul, th ol {
+    margin: calc(var(--spacing-sm) * 0.5) 0;
+    padding-left: var(--spacing-md);
+  }
+  
+  td li, th li {
+    margin: calc(var(--spacing-sm) * 0.125) 0;
+  }
+  
+  td p, th p {
+    margin-bottom: calc(var(--spacing-sm) * 0.25);
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 1199px) {
+  .container {
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+}
+
+/* ==================== PRINT STYLES ==================== */
+
+@media print {
+  :root {
+    --bg-color: white;
+    --text-color: black;
+    --border-color: #ccc;
+  }
+  
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+  
+  #toc.toc2 {
+    position: static;
+    width: auto;
+    height: auto;
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  body.toc2.toc-left {
+    padding-left: 0;
+  }
+  
+  .admonitionblock {
+    page-break-inside: avoid;
+  }
+  
+  pre {
+    page-break-inside: avoid;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+}
+
+/* ==================== UTILITIES ==================== */
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.mb-0 {
+  margin-bottom: 0;
+}
+
+.mt-0 {
+  margin-top: 0;
+}
+
+/* ==================== ACCESSIBILITY ==================== */
+
+/* Focus indicators */
+*:focus {
+  outline: 2px solid var(--link-color);
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --border-color: #000000;
+    --border-secondary: #000000;
+    --text-secondary: var(--text-color);
+  }
+}
+
+/* ==================== CUSTOM ENHANCEMENTS ==================== */
+
+/* Note: This CSS includes scroll-spy functionality that works with CSS alone
+ * For enhanced scroll-spy with JavaScript, include scroll-spy.js:
+ * <script src="scroll-spy.js"></script>
+ */
+
+/* Better selection colors */
+::selection {
+  background-color: var(--link-color);
+  color: white;
+}
+
+/* Loading state */
+body {
+  opacity: 0;
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.3/styles/github.min.css">
+</head>
+<body class="article toc2 toc-left">
+<div id="header">
+<h1>Memory and Thread Placement Optimization Developer&#8217;s Guide</h1>
+<div id="toc" class="toc2">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_preface">1. Preface</a>
+<ul class="sectlevel2">
+<li><a href="#who-should-use-this-book">1.1. Who Should Use This Book</a></li>
+<li><a href="#related-third-party-web-site-references">1.2. Related Third-Party Web Site References</a></li>
+<li><a href="#typographic-conventions">1.3. Typographic Conventions</a></li>
+<li><a href="#shell-prompts-in-command-examples">1.4. Shell Prompts in Command Examples</a></li>
+</ul>
+</li>
+<li><a href="#locality-group-apis">2. Locality Group APIs</a>
+<ul class="sectlevel2">
+<li><a href="#locality-groups-overview">2.1. Locality Groups Overview</a></li>
+<li><a href="#verifying-the-interface-version">2.2. Verifying the Interface Version</a></li>
+<li><a href="#initializing-the-locality-group-interface">2.3. Initializing the Locality Group Interface</a>
+<ul class="sectlevel3">
+<li><a href="#using-lgrp_init">2.3.1. Using <code>lgrp_init</code></a></li>
+<li><a href="#using-lgrp_fini">2.3.2. Using <code>lgrp_fini</code></a></li>
+</ul>
+</li>
+<li><a href="#locality-group-hierarchy">2.4. Locality Group Hierarchy</a>
+<ul class="sectlevel3">
+<li><a href="#using-lgrpcookiestale">2.4.1. Using <code>lgrp_cookie_stale</code></a></li>
+<li><a href="#using-lgrp_view">2.4.2. Using <code>lgrp_view</code></a></li>
+<li><a href="#using-lgrp_nlgrps">2.4.3. Using <code>lgrp_nlgrps</code></a></li>
+<li><a href="#using-lgrp_root">2.4.4. Using <code>lgrp_root</code></a></li>
+<li><a href="#using-lgrp_parents">2.4.5. Using <code>lgrp_parents</code></a></li>
+<li><a href="#using-lgrp_children">2.4.6. Using <code>lgrp_children</code></a></li>
+</ul>
+</li>
+<li><a href="#locality-group-contents">2.5. Locality Group Contents</a>
+<ul class="sectlevel3">
+<li><a href="#using-lgrp_resources">2.5.1. Using <code>lgrp_resources</code></a></li>
+<li><a href="#using-lgrp_cpus">2.5.2. Using <code>lgrp_cpus</code></a></li>
+<li><a href="#using-lgrpmemsize">2.5.3. Using <code>lgrp_mem_size</code></a></li>
+</ul>
+</li>
+<li><a href="#locality-group-characteristics">2.6. Locality Group Characteristics</a>
+<ul class="sectlevel3">
+<li><a href="#using-lgrplatencycookie">2.6.1. Using <code>lgrp_latency_cookie</code></a></li>
+</ul>
+</li>
+<li><a href="#locality-groups-and-thread-and-memory-placement">2.7. Locality Groups and Thread and Memory Placement</a>
+<ul class="sectlevel3">
+<li><a href="#using-lgrp_home">2.7.1. Using <code>lgrp_home</code></a></li>
+<li><a href="#using-madvise">2.7.2. Using <code>madvise</code></a></li>
+<li><a href="#using-madvso1">2.7.3. Using <code>madv.so.1</code></a></li>
+<li><a href="#using-meminfo">2.7.4. Using <code>meminfo</code></a></li>
+<li><a href="#locality-group-affinity">2.7.5. Locality Group Affinity</a></li>
+</ul>
+</li>
+<li><a href="#examples-of-api-usage">2.8. Examples of API Usage</a></li>
+</ul>
+</li>
+<li><a href="#mpo-observability-tools">3. MPO Observability Tools</a>
+<ul class="sectlevel2">
+<li><a href="#the-pmadvise-utility">3.1. The <code>pmadvise</code> utility</a></li>
+<li><a href="#the-plgrp-tool">3.2. The <code>plgrp</code> tool</a>
+<ul class="sectlevel3">
+<li><a href="#specifying-lgroups">3.2.1. Specifying Lgroups</a></li>
+<li><a href="#specifying-process-and-thread-arguments">3.2.2. Specifying Process and Thread Arguments</a></li>
+</ul>
+</li>
+<li><a href="#the-lgrpinfo-tool">3.3. The <code>lgrpinfo</code> Tool</a>
+<ul class="sectlevel3">
+<li><a href="#options-for-the-lgrpinfo-tool">3.3.1. Options for the <code>lgrpinfo</code> Tool</a></li>
+</ul>
+</li>
+<li><a href="#the-solarislgrp-module">3.4. The <code>Solaris::lgrp</code> Module</a></li>
+</ul>
+</li>
+<li><a href="#document-license">4. Document License</a>
+<ul class="sectlevel2">
+<li><a href="#_public_documentation_license_pdl_version_1_01">4.1. Public Documentation License (PDL), Version 1.01</a></li>
+<li><a href="#_public_documentation_license_notice">4.2. Public Documentation License Notice</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_preface"><a class="anchor" href="#_preface"></a>1. Preface</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Memory and Thread Placement Optimization Developer&#8217;s Guide provides
+information on locality groups and the technologies that are available
+to optimize the use of computing resources in the illumos operating
+system.</p>
+</div>
+<div class="sect2">
+<h3 id="who-should-use-this-book"><a class="anchor" href="#who-should-use-this-book"></a>1.1. Who Should Use This Book</h3>
+<div class="paragraph">
+<p>This book is intended for use by developers who are writing applications
+in an environment with multiple CPUs and a non-uniform memory
+architecture. The programming interfaces and tools that are described in
+this book give the developer control over the system&#8217;s behavior and
+resource allocation.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="related-third-party-web-site-references"><a class="anchor" href="#related-third-party-web-site-references"></a>1.2. Related Third-Party Web Site References</h3>
+<div class="paragraph">
+<p>Third-party URLs are referenced in this document and provide additional,
+related information.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Sun is not responsible for the availability of third-party web sites
+mentioned in this document. Sun does not endorse and is not responsible
+or liable for any content, advertising, products, or other materials
+that are available on or through such sites or resources. Sun will not
+be responsible or liable for any actual or alleged damage or loss caused
+or alleged to be caused by or in connection with use of or reliance on
+any such content, goods, or services that are available on or through
+such sites or resources.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="typographic-conventions"><a class="anchor" href="#typographic-conventions"></a>1.3. Typographic Conventions</h3>
+<div class="paragraph">
+<p>The following table describes the typographic conventions that are used
+in this book.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Typographic Conventions</caption>
+<colgroup>
+<col style="width: 21%;">
+<col style="width: 45%;">
+<col style="width: 34%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Typeface</th>
+<th class="tableblock halign-left valign-top">Meaning</th>
+<th class="tableblock halign-left valign-top">Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AaBbCc123</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The names of commands, files, and directories, and
+onscreen computer output</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Edit your <code>.login</code> file.</p>
+</div>
+<div class="paragraph">
+<p>Use <code>ls</code> <code>a</code> to list all files.</p>
+</div>
+<div class="paragraph">
+<p><code>machine_name% you have mail.</code></p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AaBbCc123</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">What you type, contrasted with onscreen computer output</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>machine_name%</code> <code>su</code></p>
+</div>
+<div class="paragraph">
+<p><code>Password:</code></p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">&lt;aabbcc123&gt;</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Placeholder: replace with a real name or value</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The command to remove a file is <code>rm</code> &lt;filename&gt;.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>AaBbCc123</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Book titles, new terms, and terms to be emphasized</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Read Chapter 6 in the User&#8217;s Guide.</p>
+</div>
+<div class="paragraph">
+<p>A <em>cache</em> is a copy that is stored locally.</p>
+</div>
+<div class="paragraph">
+<p>Do <em>not</em> save the file.</p>
+</div>
+<div class="paragraph">
+<p><strong>Note:</strong> Some emphasized items appear bold online.</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="shell-prompts-in-command-examples"><a class="anchor" href="#shell-prompts-in-command-examples"></a>1.4. Shell Prompts in Command Examples</h3>
+<div class="paragraph">
+<p>The following table shows the default UNIX system prompt and superuser
+prompt for the C shell, Bourne shell, and Korn shell.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. Shell Prompts</caption>
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Shell</th>
+<th class="tableblock halign-left valign-top">Prompt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">C shell</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>machine_name%</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">C shell for superuser</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>machine_name#</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bourne shell and Korn shell</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>$</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bourne shell and Korn shell for superuser</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>#</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="locality-group-apis"><a class="anchor" href="#locality-group-apis"></a>2. Locality Group APIs</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This chapter describes the APIs that applications use to interact with
+locality groups.</p>
+</div>
+<div class="paragraph">
+<p>This chapter discusses the following topics:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#locality-groups-overview">Locality Groups Overview</a> describes the locality group
+abstraction.</p>
+</li>
+<li>
+<p><a href="#verifying-the-interface-version">Verifying the Interface Version</a> describes the
+functions that give information about the interface.</p>
+</li>
+<li>
+<p><a href="#initializing-the-locality-group-interface">Initializing the Locality Group Interface</a> describes
+function calls that initialize and shut down the portion of the
+interface that is used to traverse the locality group hierarchy and to
+discover the contents of a locality group.</p>
+</li>
+<li>
+<p><a href="#locality-group-hierarchy">Locality Group Hierarchy</a> describes function calls
+that navigate the locality group hierarchy and functions that get
+characteristics of the locality group hierarchy.</p>
+</li>
+<li>
+<p><a href="#locality-group-contents">Locality Group Contents</a> describes function calls
+that retrieve information about a locality group&#8217;s contents.</p>
+</li>
+<li>
+<p><a href="#locality-group-characteristics">Locality Group Characteristics</a> describes function
+calls that retrieve information about a locality group&#8217;s
+characteristics.</p>
+</li>
+<li>
+<p><a href="#locality-groups-and-thread-and-memory-placement">Locality Groups and Thread and Memory Placement</a>
+describes how to affect the locality group placement of a thread and its
+memory.</p>
+</li>
+<li>
+<p><a href="#examples-of-api-usage">Examples of API Usage</a> contains code that performs
+example tasks by using the APIs that are described in this chapter.</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="locality-groups-overview"><a class="anchor" href="#locality-groups-overview"></a>2.1. Locality Groups Overview</h3>
+<div class="paragraph">
+<p>Shared memory multiprocessor computers contain multiple CPUs. Each CPU
+can access all of the memory in the machine. In some shared memory
+multiprocessors, the memory architecture enables each CPU to access some
+areas of memory more quickly than other areas.</p>
+</div>
+<div class="paragraph">
+<p>When a machine with such a memory architecture runs the illumos
+software, providing information to the kernel about the shortest access
+times between a given CPU and a given area of memory can improve the
+system&#8217;s performance. The locality group (lgroup) abstraction has been
+introduced to handle this information. The lgroup abstraction is part of
+the Memory Placement Optimization (MPO) feature.</p>
+</div>
+<div class="paragraph">
+<p>An lgroup is a set of CPU–like and memory–like devices in which each CPU
+in the set can access any memory in that set within a bounded latency
+interval. The value of the latency interval represents the least common
+latency between all the CPUs and all the memory in that lgroup. The
+latency bound that defines an lgroup does not restrict the maximum
+latency between members of that lgroup. The value of the latency bound
+is the shortest latency that is common to all possible CPU-memory pairs
+in the group.</p>
+</div>
+<div class="paragraph">
+<p>Lgroups are hierarchical. The lgroup hierarchy is a Directed Acyclic
+Graph (DAG) and is similar to a tree, except that an lgroup might have
+more than one parent. The root lgroup contains all the resources in the
+system and can include child lgroups. Furthermore, the root lgroup can
+be characterized as having the highest latency value of all the lgroups
+in the system. All of its child lgroups will have lower latency values.
+The lgroups closer to the root have a higher latency while lgroups
+closer to leaves have lower latency.</p>
+</div>
+<div class="paragraph">
+<p>A computer in which all the CPUs can access all the memory in the same
+amount of time can be represented with a single lgroup (see
+<a href="#lgroups-fig-52">Single Locality Group Schematic</a>). A computer in
+which some of the CPUs can access some areas of memory in a shorter time
+than other areas can be represented by using multiple lgroups (see
+<a href="#lgroups-fig-53">Multiple Locality Groups Schematic</a>).</p>
+</div>
+<div id="lgroups-fig-52" class="imageblock">
+<div class="content">
+<img src="figures/single-lat-bound.png" alt="All CPUs in the machine can access the memory in a comparable time frame.">
+</div>
+<div class="title">Figure 1. Single Locality Group Schematic</div>
+</div>
+<div id="lgroups-fig-53" class="imageblock">
+<div class="content">
+<img src="figures/loc-groups-schem.png" alt="The machine&#8217;s CPU and memory resources are grouped by bounded latency intervals.">
+</div>
+<div class="title">Figure 2. Multiple Locality Groups Schematic</div>
+</div>
+<div class="paragraph">
+<p>The organization of the lgroup hierarchy simplifies the task of finding
+the nearest resources in the system. Each thread is assigned a home
+lgroup upon creation. The operating system attempts to allocate
+resources for the thread from the thread&#8217;s home lgroup by default. For
+example, the illumos kernel attempts to schedule a thread to run on the
+CPUs in the thread&#8217;s home lgroup and allocate the thread&#8217;s memory in the
+thread&#8217;s home lgroup by default. If the desired resources are not
+available from the thread&#8217;s home lgroup, the kernel can traverse the
+lgroup hierarchy to find the next nearest resources from parents of the
+home lgroup. If the desired resources are not available in the home
+lgroup&#8217;s parents, the kernel continues to traverse the lgroup hierarchy
+to the successive ancestor lgroups of the home lgroup. The root lgroup
+is the ultimate ancestor of all other lgroups in a machine and contains
+all of the machine&#8217;s resources.</p>
+</div>
+<div class="paragraph">
+<p>The lgroup APIs export the lgroup abstraction for applications to use
+for observability and performance tuning. A new library, called
+<code>liblgrp</code>, contains the new APIs. Applications can use the APIs to
+perform the following tasks:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Traverse the group hierarchy</p>
+</li>
+<li>
+<p>Discover the contents and characteristics of a given lgroup</p>
+</li>
+<li>
+<p>Affect the thread and memory placement on lgroups</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="verifying-the-interface-version"><a class="anchor" href="#verifying-the-interface-version"></a>2.2. Verifying the Interface Version</h3>
+<div class="paragraph">
+<p>The <code>lgrp_version(3LGRP)</code> function must be used to verify the
+presence of a supported lgroup interface before using the lgroup API.
+The <code>lgrp_version</code> function has the following syntax:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_version(const int version);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_version</code> function takes a version number for the lgroup
+interface as an argument and returns the lgroup interface version that
+the system supports. When the current implementation of the lgroup API
+supports the version number in the <code>version</code> argument, the
+<code>lgrp_version</code> function returns that version number. Otherwise, the
+<code>lgrp_version</code> function returns <code>LGRP_VER_NONE</code>.</p>
+</div>
+<div id="lgroups-ex-26" class="paragraph">
+<p>Example of <code>lgrp_version</code> Use</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+if (lgrp_version(LGRP_VER_CURRENT) != LGRP_VER_CURRENT) {
+    fprintf(stderr, "Built with unsupported lgroup interface %d\n",
+        LGRP_VER_CURRENT);
+    exit (1);
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="initializing-the-locality-group-interface"><a class="anchor" href="#initializing-the-locality-group-interface"></a>2.3. Initializing the Locality Group Interface</h3>
+<div class="paragraph">
+<p>Applications must call <code>lgrp_init(3LGRP)</code> in order to use the APIs
+for traversing the lgroup hierarchy and to discover the contents of the
+lgroup hierarchy. The call to <code>lgrp_init</code> gives the application a
+consistent snapshot of the lgroup hierarchy. The application developer
+can specify whether the snapshot contains only the resources that are
+available to the calling thread specifically or the resources that are
+available to the operating system in general. The <code>lgrp_init</code>
+function returns a cookie that is used for the following tasks:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Navigating the lgroup hierarchy</p>
+</li>
+<li>
+<p>Determining the contents of an lgroup</p>
+</li>
+<li>
+<p>Determining whether the snapshot is current</p>
+</li>
+</ul>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_init"><a class="anchor" href="#using-lgrp_init"></a>2.3.1. Using <code>lgrp_init</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_init</code> function initializes the lgroup interface and takes
+a snapshot of the lgroup hierarchy.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+lgrp_cookie_t lgrp_init(lgrp_view_t view);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>When the <code>lgrp_init</code> function is called with
+<code>LGRP_VIEW_CALLER</code> as the view, the function returns a snapshot
+that contains only the resources that are available to the calling
+thread. When the <code>lgrp_init</code> function is called with
+<code>LGRP_VIEW_OS</code> as the view, the function returns a snapshot that
+contains the resources that are available to the operating system. When
+a thread successfully calls the <code>lgrp_init</code> function, the function
+returns a cookie that is used by any function that interacts with the
+lgroup hierarchy. When a thread no longer needs the cookie, call the
+<code>lgrp_fini</code> function with the cookie as the argument.</p>
+</div>
+<div class="paragraph">
+<p>The lgroup hierarchy consists of a root lgroup that contains all of the
+machine&#8217;s CPU and memory resources. The root lgroup might contain other
+locality groups bounded by smaller latencies.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_init</code> function can return two errors. When a view is
+invalid, the function returns EINVAL. When there is insufficient memory
+to allocate the snapshot of the lgroup hierarchy, the function returns
+ENOMEM.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_fini"><a class="anchor" href="#using-lgrp_fini"></a>2.3.2. Using <code>lgrp_fini</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_fini(3LGRP)</code> function ends the usage of a given cookie and
+frees the corresponding lgroup hierarchy snapshot.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_fini(lgrp_cookie_t cookie);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_fini</code> function takes a cookie that represents an lgroup
+hierarchy snapshot created by a previous call to <code>lgrp_init</code>. The
+<code>lgrp_fini</code> function frees the memory that is allocated to that
+snapshot. After the call to <code>lgrp_fini</code>, the cookie is invalid. Do
+not use that cookie again.</p>
+</div>
+<div class="paragraph">
+<p>When the cookie passed to the <code>lgrp_fini</code> function is invalid,
+<code>lgrp_fini</code> returns EINVAL.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="locality-group-hierarchy"><a class="anchor" href="#locality-group-hierarchy"></a>2.4. Locality Group Hierarchy</h3>
+<div class="paragraph">
+<p>The APIs that are described in this section enable the calling thread to
+navigate the lgroup hierarchy. The lgroup hierarchy is a directed
+acyclic graph that is similar to a tree, except that a node might have
+more than one parent. The root lgroup represents the whole machine and
+contains all of that machine&#8217;s resources. The root lgroup is the lgroup
+with the highest latency value in the system. Each of the child lgroups
+contains a subset of the hardware that is in the root lgroup. Each child
+lgroup is bounded by a lower latency value. Locality groups that are
+closer to the root have more resources and a higher latency. Locality
+groups that are closer to the leaves have fewer resources and a lower
+latency. An lgroup can contain resources directly within its latency
+boundary. An lgroup can also contain leaf lgroups that contain their own
+sets of resources. The resources of leaf lgroups are available to the
+lgroup that encapsulates those leaf lgroups.</p>
+</div>
+<div class="sect3">
+<h4 id="using-lgrpcookiestale"><a class="anchor" href="#using-lgrpcookiestale"></a>2.4.1. Using <code>lgrp_cookie_stale</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_cookie_stale(3LGRP)</code> function determines whether the
+snapshot of the lgroup hierarchy represented by the given cookie is
+current.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_cookie_stale(lgrp_cookie_t cookie);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The cookie returned by the <code>lgrp_init</code> function can become stale due
+to several reasons that depend on the view that the snapshot represents.
+A cookie that is returned by calling the <code>lgrp_init</code> function with
+the view set to <code>LGRP_VIEW_OS</code> can become stale due to changes
+in the lgroup hierarchy such as dynamic reconfiguration or a change in a
+CPU&#8217;s online status. A cookie that is returned by calling the
+<code>lgrp_init</code> function with the view set to <code>LGRP_VIEW_CALLER</code>
+can become stale due to changes in the calling thread&#8217;s processor set or
+changes in the lgroup hierarchy. A stale cookie is refreshed by calling
+the <code>lgrp_fini</code> function with the old cookie, followed by calling
+<code>lgrp_init</code> to generate a new cookie.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_cookie_stale</code> function returns EINVAL when the given
+cookie is invalid.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_view"><a class="anchor" href="#using-lgrp_view"></a>2.4.2. Using <code>lgrp_view</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_view(3LGRP)</code> function determines the view with which a
+given lgroup hierarchy snapshot was taken.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+lgrp_view_t lgrp_view(lgrp_cookie_t cookie);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_view</code> function takes a cookie that represents a snapshot
+of the lgroup hierarchy and returns the snapshot&#8217;s view of the lgroup
+hierarchy. Snapshots that are taken with the view
+<code>LGRP_VIEW_CALLER</code> contain only the resources that are available
+to the calling thread. Snapshots that are taken with the view
+<code>LGRP_VIEW_OS</code> contain all the resources that are available to
+the operating system.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_view</code> function returns EINVAL when the given cookie is
+invalid.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_nlgrps"><a class="anchor" href="#using-lgrp_nlgrps"></a>2.4.3. Using <code>lgrp_nlgrps</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_nlgrps(3LGRP)</code> function returns the number of locality
+groups in the system. If a system has only one locality group, memory
+placement optimizations have no effect.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_nlgrps(lgrp_cookie_t cookie);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_nlgrps</code> function takes a cookie that represents a snapshot
+of the lgroup hierarchy and returns the number of lgroups available in
+the hierarchy.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_nlgrps</code> function returns EINVAL when the cookie is
+invalid.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_root"><a class="anchor" href="#using-lgrp_root"></a>2.4.4. Using <code>lgrp_root</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_root(3LGRP)</code> function returns the root lgroup ID.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+lgrp_id_t lgrp_root(lgrp_cookie_t cookie);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_root</code> function takes a cookie that represents a snapshot
+of the lgroup hierarchy and returns the root lgroup ID.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_parents"><a class="anchor" href="#using-lgrp_parents"></a>2.4.5. Using <code>lgrp_parents</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_parents(3LGRP)</code> function takes a cookie that represents a
+snapshot of the lgroup hierarchy and returns the number of parent
+lgroups for the specified lgroup.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_parents(lgrp_cookie_t cookie, lgrp_id_t child,
+                 lgrp_id_t *lgrp_array, uint_t lgrp_array_size);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If <code>lgrp_array</code> is not <code>NULL</code> and the value of
+<code>lgrp_array_size</code> is not zero, the <code>lgrp_parents</code> function
+fills the array with parent lgroup IDs until the array is full or all
+parent lgroup IDs are in the array. The root lgroup has zero parents.
+When the <code>lgrp_parents</code> function is called for the root lgroup,
+<code>lgrp_array</code> is not filled in.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_parents</code> function returns EINVAL when the cookie is
+invalid. The <code>lgrp_parents</code> function returns ESRCH when the
+specified lgroup ID is not found.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_children"><a class="anchor" href="#using-lgrp_children"></a>2.4.6. Using <code>lgrp_children</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_children(3LGRP)</code> function takes a cookie that represents
+the calling thread&#8217;s snapshot of the lgroup hierarchy and returns the
+number of child lgroups for the specified lgroup.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_children(lgrp_cookie_t cookie, lgrp_id_t parent,
+                  lgrp_id_t *lgrp_array, uint_t lgrp_array_size);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If <code>lgrp_array</code> is not <code>NULL</code> and the value of
+<code>lgrp_array_size</code> is not zero, the <code>lgrp_children</code> function
+fills the array with child lgroup IDs until the array is full or all
+child lgroup IDs are in the array.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_children</code> function returns EINVAL when the cookie is
+invalid. The <code>lgrp_children</code> function returns ESRCH when the
+specified lgroup ID is not found.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="locality-group-contents"><a class="anchor" href="#locality-group-contents"></a>2.5. Locality Group Contents</h3>
+<div class="paragraph">
+<p>The following APIs retrieve information about the contents of a given
+lgroup.</p>
+</div>
+<div class="paragraph">
+<p>The lgroup hierarchy organizes the domain&#8217;s resources to simplify the
+process of locating the nearest resource. Leaf lgroups are defined with
+resources that have the least latency. Each of the successive ancestor
+lgroups of a given leaf lgroup contains the next nearest resources to
+its child lgroup. The root lgroup contains all of the resources that are
+in the domain.</p>
+</div>
+<div class="paragraph">
+<p>The resources of a given lgroup are contained directly within that
+lgroup or indirectly within the leaf lgroups that the given lgroup
+encapsulates. Leaf lgroups directly contain their resources and do not
+encapsulate any other lgroups.</p>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_resources"><a class="anchor" href="#using-lgrp_resources"></a>2.5.1. Using <code>lgrp_resources</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_resources</code> function returns the number of resources
+contained in a specified lgroup.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_resources(lgrp_cookie_t cookie, lgrp_id_t lgrp, lgrp_id_t *lgrpids,
+                   uint_t count, lgrp_rsrc_t type);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_resources</code> function takes a cookie that represents a
+snapshot of the lgroup hierarchy. That cookie is obtained from the
+<code>lgrp_init</code> function. The <code>lgrp_resources</code> function returns the
+number of resources that are in the lgroup with the ID that is specified
+by the value of the <code>lgrp</code> argument. The <code>lgrp_resources</code> function
+represents the resources with a set of lgroups that directly contain CPU
+or memory resources. The <code>lgrp_rsrc_t</code> argument can have the
+following two values:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>LGRP_RSRC_CPU</code></dt>
+<dd>
+<p>The <code>lgrp_resources</code> function returns the number of CPU resources.</p>
+</dd>
+<dt class="hdlist1"><code>LGRP_RSRC_MEM</code></dt>
+<dd>
+<p>The <code>lgrp_resources</code> function returns the number of memory
+resources.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>When the value passed in the <code>lgrpids[]</code> argument is not null and
+the <code>count</code> argument is not zero, the <code>lgrp_resources</code> function
+stores lgroup IDs in the <code>lgrpids[]</code> array. The number of lgroup IDs
+stored in the array can be up to the value of the <code>count</code> argument.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_resources</code> function returns EINVAL when the specified
+cookie, lgroup ID, or type are not valid. The <code>lgrp_resources</code>
+function returns ESRCH when the function does not find the specified
+lgroup ID.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_cpus"><a class="anchor" href="#using-lgrp_cpus"></a>2.5.2. Using <code>lgrp_cpus</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_cpus(3LGRP)</code> function takes a cookie that represents a
+snapshot of the lgroup hierarchy and returns the number of CPUs in a
+given lgroup.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_cpus(lgrp_cookie_t cookie, lgrp_id_t lgrp, processorid_t *cpuids,
+              uint_t count, int content);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the <code>cpuid[]</code> argument is not <code>NULL</code> and the CPU count is not
+zero, the <code>lgrp_cpus</code> function fills the array with CPU IDs until
+the array is full or all the CPU IDs are in the array.</p>
+</div>
+<div class="paragraph">
+<p>The <code>content</code> argument can have the following two values:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>LGRP_CONTENT_ALL</code></dt>
+<dd>
+<p>The <code>lgrp_cpus</code> function returns IDs for the CPUs in this lgroup
+and this lgroup&#8217;s descendants.</p>
+</dd>
+<dt class="hdlist1"><code>LGRP_CONTENT_DIRECT</code></dt>
+<dd>
+<p>The <code>lgrp_cpus</code> function returns IDs for the CPUs in this lgroup
+only.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_cpus</code> function returns EINVAL when the cookie, lgroup ID,
+or one of the flags is not valid. The <code>lgrp_cpus</code> function returns
+ESRCH when the specified lgroup ID is not found.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-lgrpmemsize"><a class="anchor" href="#using-lgrpmemsize"></a>2.5.3. Using <code>lgrp_mem_size</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_mem_size(3LGRP)</code> function takes a cookie that
+represents a snapshot of the lgroup hierarchy and returns the size of
+installed or free memory in the given lgroup. The
+<code>lgrp_mem_size</code> function reports memory sizes in bytes.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+lgrp_mem_size_t lgrp_mem_size(lgrp_cookie_t cookie, lgrp_id_t lgrp,
+                              int type, int content)</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>type</code> argument can have the following two values:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>LGRP_MEM_SZ_FREE</code></dt>
+<dd>
+<p>The <code>lgrp_mem_size</code> function returns the amount of free memory
+in bytes.</p>
+</dd>
+<dt class="hdlist1"><code>LGRP_MEM_SZ_INSTALLED</code></dt>
+<dd>
+<p>The <code>lgrp_mem_size</code> function returns the amount of installed
+memory in bytes.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The <code>content</code> argument can have the following two values:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>LGRP_CONTENT_ALL</code></dt>
+<dd>
+<p>The <code>lgrp_mem_size</code> function returns the amount of memory in
+this lgroup and this lgroup&#8217;s descendants.</p>
+</dd>
+<dt class="hdlist1"><code>LGRP_CONTENT_DIRECT</code></dt>
+<dd>
+<p>The <code>lgrp_mem_size</code> function returns the amount of memory in
+this lgroup only.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_mem_size</code> function returns EINVAL when the cookie,
+lgroup ID, or one of the flags is not valid. The <code>lgrp_mem_size</code>
+function returns ESRCH when the specified lgroup ID is not found.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="locality-group-characteristics"><a class="anchor" href="#locality-group-characteristics"></a>2.6. Locality Group Characteristics</h3>
+<div class="paragraph">
+<p>The following API retrieves information about the characteristics of a
+given lgroup.</p>
+</div>
+<div class="sect3">
+<h4 id="using-lgrplatencycookie"><a class="anchor" href="#using-lgrplatencycookie"></a>2.6.1. Using <code>lgrp_latency_cookie</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_latency(3LGRP)</code> function returns the latency between a CPU
+in one lgroup to the memory in another lgroup.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_latency_cookie(lgrp_cookie_t cookie, lgrp_id_t from, lgrp_id_t to.
+                        lat_between_t between);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_latency_cookie</code> function takes a cookie that
+represents a snapshot of the lgroup hierarchy. The <code>lgrp_init</code>
+function creates this cookie. The <code>lgrp_latency_cookie</code> function
+returns a value that represents the latency between a hardware resource
+in the lgroup given by the value of the <code>from</code> argument and a hardware
+resource in the lgroup given by the value of the <code>to</code> argument. If both
+arguments point to the same lgroup, the <code>lgrp_latency_cookie</code>
+function returns the latency value within that lgroup.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The latency value returned by the <code>lgrp_latency_cookie</code> function
+is defined by the operating system and is platform-specific. This value
+does not necessarily represent the actual latency between hardware
+devices. Use this value only for comparison within one domain.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>When the value of the <code>between</code> argument is
+<code>LGRP_LAT_CPU_TO_MEM</code>, the <code>lgrp_latency_cookie</code>
+function measures the latency from a CPU resource to a memory resource.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_latency_cookie</code> function returns EINVAL when the
+lgroup ID is not valid. When the <code>lgrp_latency_cookie</code> function
+does not find the specified lgroup ID, the “from” lgroup does not
+contain any CPUs, or the “to” lgroup does not have any memory, the
+<code>lgrp_latency_cookie</code> function returns ESRCH.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="locality-groups-and-thread-and-memory-placement"><a class="anchor" href="#locality-groups-and-thread-and-memory-placement"></a>2.7. Locality Groups and Thread and Memory Placement</h3>
+<div class="paragraph">
+<p>This section discusses the APIs used to discover and affect thread and
+memory placement with respect to lgroups.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>lgrp_home(3LGRP)</code> function is used to discover thread
+placement.</p>
+</li>
+<li>
+<p>The <code>meminfo(2)</code> system call is used to discover memory placement.</p>
+</li>
+<li>
+<p>The <code>MADV_ACCESS</code> flags to the <code>madvise(3C)</code> function are used to
+affect memory allocation among lgroups.</p>
+</li>
+<li>
+<p>The <code>lgrp_affinity_set(3LGRP)</code> function can affect thread and
+memory placement by setting a thread&#8217;s affinity for a given lgroup.</p>
+</li>
+<li>
+<p>The affinities of an lgroup may specify an order of preference for
+lgroups from which to allocate resources.</p>
+</li>
+<li>
+<p>The kernel needs information about the likely pattern of an
+application&#8217;s memory use in order to allocate memory resources
+efficiently.</p>
+</li>
+<li>
+<p>The <code>madvise</code> function and its shared object analogue <code>madv.so.1</code>
+provide this information to the kernel.</p>
+</li>
+<li>
+<p>A running process can gather memory usage information about itself by
+using the <code>meminfo</code> system call.</p>
+</li>
+</ul>
+</div>
+<div class="sect3">
+<h4 id="using-lgrp_home"><a class="anchor" href="#using-lgrp_home"></a>2.7.1. Using <code>lgrp_home</code></h4>
+<div class="paragraph">
+<p>The <code>lgrp_home</code> function returns the home lgroup for the specified
+process or thread.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+lgrp_id_t lgrp_home(idtype_t idtype, id_t id);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_home</code> function returns EINVAL when the ID type is not
+valid. The <code>lgrp_home</code> function returns EPERM when the effective
+user of the calling process is not the superuser and the real or
+effective user ID of the calling process does not match the real or
+effective user ID of one of the threads. The <code>lgrp_home</code> function
+returns ESRCH when the specified process or thread is not found.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-madvise"><a class="anchor" href="#using-madvise"></a>2.7.2. Using <code>madvise</code></h4>
+<div class="paragraph">
+<p>The <code>madvise</code> function advises the kernel that a region of user virtual
+memory in the range starting at the address specified in <code>addr</code> and with
+length equal to the value of the <code>len</code> parameter is expected to follow a
+particular pattern of use. The kernel uses this information to optimize
+the procedure for manipulating and maintaining the resources associated
+with the specified range. Use of the <code>madvise</code> function can increase
+system performance when used by programs that have specific knowledge of
+their access patterns over memory.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/types.h&gt;
+#include &lt;sys/mman.h&gt;
+int madvise(caddr_t addr, size_t len, int advice);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>madvise</code> function provides the following flags to affect how a
+thread&#8217;s memory is allocated among lgroups:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>MADV_ACCESS_DEFAULT</code></dt>
+<dd>
+<p>This flag resets the kernel&#8217;s expected access pattern for the
+specified range to the default.</p>
+</dd>
+<dt class="hdlist1"><code>MADV_ACCESS_LWP</code></dt>
+<dd>
+<p>This flag advises the kernel that the next LWP to touch the specified
+address range is the LWP that will access that range the most. The
+kernel allocates the memory and other resources for this range and the
+LWP accordingly.</p>
+</dd>
+<dt class="hdlist1"><code>MADV_ACCESS_MANY</code></dt>
+<dd>
+<p>This flag advises the kernel that many processes or LWPs will access
+the specified address range randomly across the system. The kernel
+allocates the memory and other resources for this range accordingly.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The <code>madvise</code> function can return the following values:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">EAGAIN</dt>
+<dd>
+<p>Some or all of the mappings in the specified address range, from
+<code>addr</code> to <code>addr</code>&#43;`len`, are locked for I/O.</p>
+</dd>
+<dt class="hdlist1">EINVAL</dt>
+<dd>
+<p>The value of the <code>addr</code> parameter is not a multiple of the page size
+as returned by <code>sysconf(3C)</code>, the length of the specified address
+range is less than or equal to zero, or the advice is invalid.</p>
+</dd>
+<dt class="hdlist1">EIO</dt>
+<dd>
+<p>An I/O error occurs while reading from or writing to the file system.</p>
+</dd>
+<dt class="hdlist1">ENOMEM</dt>
+<dd>
+<p>Addresses in the specified address range are outside the valid range
+for the address space of a process or the addresses in the specified
+address range specify one or more pages that are not mapped.</p>
+</dd>
+<dt class="hdlist1">ESTALE</dt>
+<dd>
+<p>The NFS file handle is stale.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-madvso1"><a class="anchor" href="#using-madvso1"></a>2.7.3. Using <code>madv.so.1</code></h4>
+<div class="paragraph">
+<p>The <code>madv.so.1</code> shared object enables the selective configuration of
+virtual memory advice for launched processes and their descendants. To
+use the shared object, the following string must be present in the
+environment:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>LD_PRELOAD=$LD_PRELOAD:madv.so.1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>madv.so.1</code> shared object applies memory advice as specified by the
+value of the <code>MADV</code> environment variable. The <code>MADV</code> environment
+variable specifies the virtual memory advice to use for all heap, shared
+memory, and mmap regions in the process address space. This advice is
+applied to all created processes. The following values of the <code>MADV</code>
+environment variable affect resource allocation among lgroups:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>access_default</code></dt>
+<dd>
+<p>This value resets the kernel&#8217;s expected access pattern to the default.</p>
+</dd>
+<dt class="hdlist1"><code>access_lwp</code></dt>
+<dd>
+<p>This value advises the kernel that the next LWP to touch an address
+range is the LWP that will access that range the most. The kernel
+allocates the memory and other resources for this range and the LWP
+accordingly.</p>
+</dd>
+<dt class="hdlist1"><code>access_many</code></dt>
+<dd>
+<p>This value advises the kernel that many processes or LWPs will access
+memory randomly across the system. The kernel allocates the memory and
+other resources accordingly.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The value of the <code>MADVCFGFILE</code> environment variable is the name of a
+text file that contains one or more memory advice configuration entries
+in the form &lt;exec-name&gt;:&lt;advice-opts&gt;.</p>
+</div>
+<div class="paragraph">
+<p>The value of &lt;exec-name&gt; is the name of an application or
+executable. The value of &lt;exec-name&gt; can be a full pathname, a
+base name, or a pattern string.</p>
+</div>
+<div class="paragraph">
+<p>The value of &lt;advice-opts&gt; is of the form
+&lt;region&gt;=&lt;advice&gt;. The values of &lt;advice&gt; are
+the same as the values for the <code>MADV</code> environment variable. Replace
+&lt;region&gt; with any of the following legal values:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>madv</code></dt>
+<dd>
+<p>Advice applies to all heap, shared memory, and <code>mmap(2)</code> regions in
+the process address space.</p>
+</dd>
+<dt class="hdlist1"><code>heap</code></dt>
+<dd>
+<p>The heap is defined to be the <code>brk(2)</code> area. Advice applies to the
+existing heap and to any additional heap memory allocated in the
+future.</p>
+</dd>
+<dt class="hdlist1"><code>shm</code></dt>
+<dd>
+<p>Advice applies to shared memory segments. See <code>shmat(2)</code> for more
+information on shared memory operations.</p>
+</dd>
+<dt class="hdlist1"><code>ism</code></dt>
+<dd>
+<p>Advice applies to shared memory segments that are using the
+<code>SHM_SHARE_MMU</code> flag. The <code>ism</code> option takes precedence over
+<code>shm</code>.</p>
+</dd>
+<dt class="hdlist1"><code>dsm</code></dt>
+<dd>
+<p>Advice applies to shared memory segments that are using the
+<code>SHM_PAGEABLE</code> flag. The <code>dsm</code> option takes precedence over <code>shm</code>.</p>
+</dd>
+<dt class="hdlist1"><code>mapshared</code></dt>
+<dd>
+<p>Advice applies to mappings established by the <code>mmap</code> system call using
+the <code>MAP_SHARED</code> flag.</p>
+</dd>
+<dt class="hdlist1"><code>mapprivate</code></dt>
+<dd>
+<p>Advice applies to mappings established by the <code>mmap</code> system call using
+the <code>MAP_PRIVATE</code> flag.</p>
+</dd>
+<dt class="hdlist1"><code>mapanon</code></dt>
+<dd>
+<p>Advice applies to mappings established by the <code>mmap</code> system call using
+the <code>MAP_ANON</code> flag. The <code>mapanon</code> option takes precedence when
+multiple options apply.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The value of the <code>MADVERRFILE</code> environment variable is the name of the
+path where error messages are logged. In the absence of a <code>MADVERRFILE</code>
+location, the <code>madv.so.1</code> shared object logs errors by using
+<code>syslog(3C)</code> with a <code>LOG_ERR</code> as the severity level and
+<code>LOG_USER</code> as the facility descriptor.</p>
+</div>
+<div class="paragraph">
+<p>Memory advice is inherited. A child process has the same advice as its
+parent. The advice is set back to the system default advice after a call
+to <code>exec(2)</code> unless a different level of advice is configured using the
+<code>madv.so.1</code> shared object. Advice is only applied to <code>mmap</code> regions
+explicitly created by the user program. Regions established by the
+run-time linker or by system libraries that make direct system calls are
+not affected.</p>
+</div>
+<div class="sect4">
+<h5 id="madvso1-usage-examples"><a class="anchor" href="#madvso1-usage-examples"></a><code>madv.so.1</code> Usage Examples</h5>
+<div class="paragraph">
+<p>The following examples illustrate specific aspects of the <code>madv.so.1</code>
+shared object.</p>
+</div>
+<div id="lgroups-ex-43" class="paragraph">
+<p>Setting Advice for a Set of Applications</p>
+</div>
+<div class="paragraph">
+<p>This configuration applies advice to all ISM segments for applications
+with exec names that begin with <code>foo</code>.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>$ LD_PRELOAD=$LD_PRELOAD:madv.so.1
+$ MADVCFGFILE=madvcfg
+$ export LD_PRELOAD MADVCFGFILE
+$ cat $MADVCFGFILE
+        foo*:ism=access_lwp</pre>
+</div>
+</div>
+<div id="lgroups-ex-44" class="paragraph">
+<p>Excluding a Set of Applications From Advice</p>
+</div>
+<div class="paragraph">
+<p>This configuration sets advice for all applications with the exception
+of <code>ls</code>.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>$ LD_PRELOAD=$LD_PRELOAD:madv.so.1
+$ MADV=access_many
+$ MADVCFGFILE=madvcfg
+$ export LD_PRELOAD MADV MADVCFGFILE
+$ cat $MADVCFGFILE
+        ls:</pre>
+</div>
+</div>
+<div id="lgroups-ex-45" class="paragraph">
+<p>Pattern Matching in a Configuration File</p>
+</div>
+<div class="paragraph">
+<p>Because the configuration specified in <code>MADVCFGFILE</code> takes precedence
+over the value set in <code>MADV</code>, specifying <code>*</code> as the
+&lt;exec-name&gt; of the last configuration entry is equivalent to
+setting <code>MADV</code>. This example is equivalent to the previous example.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>$ LD_PRELOAD=$LD_PRELOAD:madv.so.1
+$ MADVCFGFILE=madvcfg
+$ export LD_PRELOAD MADVCFGFILE
+$ cat $MADVCFGFILE
+        ls:
+        *:madv=access_many</pre>
+</div>
+</div>
+<div id="lgroups-ex-46" class="paragraph">
+<p>Advice for Multiple Regions</p>
+</div>
+<div class="paragraph">
+<p>This configuration applies one type of advice for <code>mmap</code> regions and
+different advice for heap and shared memory regions for applications
+whose <code>exec</code> names begin with <code>foo</code>.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>$ LD_PRELOAD=$LD_PRELOAD:madv.so.1
+$ MADVCFGFILE=madvcfg
+$ export LD_PRELOAD MADVCFGFILE
+$ cat $MADVCFGFILE
+        foo*:madv=access_many,heap=sequential,shm=access_lwp</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using-meminfo"><a class="anchor" href="#using-meminfo"></a>2.7.4. Using <code>meminfo</code></h4>
+<div class="paragraph">
+<p>The <code>meminfo</code> function gives the calling process information about the
+virtual memory and physical memory that the system has allocated to that
+process.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/types.h&gt;
+#include &lt;sys/mman.h&gt;
+int meminfo(const uint64_t inaddr[], int addr_count,
+    const uint_t info_req[], int info_count, uint64_t outdata[],
+    uint_t validity[]);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>meminfo</code> function can return the following types of information:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>MEMINFO_VPHYSICAL</code></dt>
+<dd>
+<p>The physical memory address corresponding to the given virtual address</p>
+</dd>
+<dt class="hdlist1"><code>MEMINFO_VLGRP</code></dt>
+<dd>
+<p>The lgroup to which the physical page corresponding to the given
+virtual address belongs</p>
+</dd>
+<dt class="hdlist1"><code>MEMINFO_VPAGESIZE</code></dt>
+<dd>
+<p>The size of the physical page corresponding to the given virtual</p>
+</dd>
+<dt class="hdlist1"><code>MEMINFO_VREPLCNT</code></dt>
+<dd>
+<p>The number of replicated physical pages that correspond to the given
+virtual address</p>
+</dd>
+<dt class="hdlist1"><code>MEMINFO_VREPL|n</code></dt>
+<dd>
+<p>The <em>n</em>th physical replica of the given virtual address</p>
+</dd>
+<dt class="hdlist1"><code>MEMINFO_VREPL_LGRP|n</code></dt>
+<dd>
+<p>The lgroup to which the <em>n</em>th physical replica of the given virtual
+address belongs</p>
+</dd>
+<dt class="hdlist1"><code>MEMINFO_PLGRP</code></dt>
+<dd>
+<p>The lgroup to which the given physical address belongs</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The <code>meminfo</code> function takes the following parameters:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>inaddr</code></dt>
+<dd>
+<p>An array of input addresses.</p>
+</dd>
+<dt class="hdlist1"><code>addr_count</code></dt>
+<dd>
+<p>The number of addresses that are passed to <code>meminfo</code>.</p>
+</dd>
+<dt class="hdlist1"><code>info_req</code></dt>
+<dd>
+<p>An array that lists the types of information that are being requested.</p>
+</dd>
+<dt class="hdlist1"><code>info_count</code></dt>
+<dd>
+<p>The number of pieces of information that are requested for each
+address in the <code>inaddr</code> array.</p>
+</dd>
+<dt class="hdlist1"><code>outdata</code></dt>
+<dd>
+<p>An array where the <code>meminfo</code> function places the results. The array&#8217;s
+size is equal to the product of the values of the <code>info_req</code> and
+<code>addr_count</code> parameters.</p>
+</dd>
+<dt class="hdlist1"><code>validity</code></dt>
+<dd>
+<p>An array of size equal to the value of the <code>addr_count</code> parameter.
+The <code>validity</code> array contains bitwise result codes. The <em>0</em>th bit of
+the result code evaluates the validity of the corresponding input
+address. Each successive bit in the result code evaluates the validity
+of the response to the members of the <code>info_req</code> array in turn.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The <code>meminfo</code> function returns EFAULT when the area of memory to which
+the <code>outdata</code> or <code>validity</code> arrays point cannot be written to. The
+<code>meminfo</code> function returns EFAULT when the area of memory to which the
+<code>info_req</code> or <code>inaddr</code> arrays point cannot be read from. The
+<code>meminfo</code> function returns EINVAL when the value of <code>info_count</code>
+exceeds 31 or is less than 1. The <code>meminfo</code> function returns EINVAL when
+the value of <code>addr_count</code> is less than zero.</p>
+</div>
+<div id="lgroups-ex-41" class="paragraph">
+<p>Use of <code>meminfo</code> to Print Out Physical Pages and Page Sizes
+Corresponding to a Set of Virtual Addresses</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">print_info(void **addrvec, int how_many)
+{
+        static const int info[] = {
+                MEMINFO_VPHYSICAL,
+                MEMINFO_VPAGESIZE};
+        uint64_t * inaddr = alloca(sizeof(uint64_t) * how_many);
+        uint64_t * outdata = alloca(sizeof(uint64_t) * how_many * 2;
+        uint_t * validity = alloca(sizeof(uint_t) * how_many);
+
+        int i;
+
+        for (i = 0; i &lt; how_many; i++)
+                inaddr[i] = (uint64_t *)addr[i];
+
+        if (meminfo(inaddr, how_many,  info,
+                    sizeof (info)/ sizeof(info[0]),
+                    outdata, validity) &lt; 0)
+                ...
+
+        for (i = 0; i &lt; how_many; i++) {
+                if (validity[i] &amp; 1 == 0)
+                        printf("address 0x%llx not part of address
+                                        space\n",
+                                inaddr[i]);
+
+                else if (validity[i] &amp; 2 == 0)
+                        printf("address 0x%llx has no physical page
+                                        associated with it\n",
+                                inaddr[i]);
+
+                else {
+                        char buff[80];
+                        if (validity[i] &amp; 4 == 0)
+                                strcpy(buff, "&lt;Unknown&gt;");
+                                sprintf(buff, "%lld", outdata[i * 2 +
+                                                1]);
+                        printf("address 0x%llx is backed by physical
+                                        page 0x%llx of size %s\n",
+                                        inaddr[i], outdata[i * 2], buff);
+                }
+        }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="locality-group-affinity"><a class="anchor" href="#locality-group-affinity"></a>2.7.5. Locality Group Affinity</h4>
+<div class="paragraph">
+<p>The kernel assigns a thread to a locality group when the lightweight
+process (LWP) for that thread is created. That lgroup is called the
+thread&#8217;s <em>home lgroup</em>. The kernel runs the thread on the CPUs in the
+thread&#8217;s home lgroup and allocates memory from that lgroup whenever
+possible. If resources from the home lgroup are unavailable, the kernel
+allocates resources from other lgroups. When a thread has affinity for
+more than one lgroup, the operating system allocates resources from
+lgroups chosen in order of affinity strength. Lgroups can have one of
+three distinct affinity levels:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><code>LGRP_AFF_STRONG</code> indicates strong affinity. If this lgroup is
+the thread&#8217;s home lgroup, the operating system avoids rehoming the
+thread to another lgroup if possible. Events such as dynamic
+reconfiguration, processor, offlining, processor binding, and processor
+set binding and manipulation might still result in thread rehoming.</p>
+</li>
+<li>
+<p><code>LGRP_AFF_WEAK</code> indicates weak affinity. If this lgroup is the
+thread&#8217;s home lgroup, the operating system rehomes the thread if
+necessary for load balancing purposes.</p>
+</li>
+<li>
+<p><code>LGRP_AFF_NONE</code> indicates no affinity. If a thread has no
+affinity to any lgroup, the operating system assigns a home lgroup to
+the thread .</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>The operating system uses lgroup affinities as advice when allocating
+resources for a given thread. The advice is factored in with the other
+system constraints. Processor binding and processor sets do not change
+lgroup affinities, but might restrict the lgroups on which a thread can
+run.</p>
+</div>
+<div class="sect4">
+<h5 id="using-lgrpaffinityget"><a class="anchor" href="#using-lgrpaffinityget"></a>Using <code>lgrp_affinity_get</code></h5>
+<div class="paragraph">
+<p>The <code>lgrp_affinity_get(3LGRP)</code> function returns the affinity
+that a LWP has for a given lgroup.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+lgrp_affinity_t lgrp_affinity_get(idtype_t idtype, id_t id, lgrp_id_t lgrp);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>idtype</code> and <code>id</code> arguments specify the LWP that the
+<code>lgrp_affinity_get</code> function examines. If the value of <code>idtype</code>
+is <code>P_PID</code>, the <code>lgrp_affinity_get</code> function gets the lgroup
+affinity for one of the LWPs in the process whose process ID matches the
+value of the <code>id</code> argument. If the value of <code>idtype</code> is <code>P_LWPID</code>,
+the <code>lgrp_affinity_get</code> function gets the lgroup affinity for
+the LWP of the current process whose LWP ID matches the value of the
+<code>id</code> argument. If the value of <code>idtype</code> is <code>P_MYID</code>, the
+<code>lgrp_affinity_get</code> function gets the lgroup affinity for the
+current LWP.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_affinity_get</code> function returns EINVAL when the given
+lgroup or ID type is not valid. The <code>lgrp_affinity_get</code> function
+returns EPERM when the effective user of the calling process is not the
+superuser and the ID of the calling process does not match the real or
+effective user ID of one of the LWPs. The <code>lgrp_affinity_get</code>
+function returns ESRCH when a given lgroup or LWP is not found.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="using-lgrpaffinityset"><a class="anchor" href="#using-lgrpaffinityset"></a>Using <code>lgrp_affinity_set</code></h5>
+<div class="paragraph">
+<p>The <code>lgrp_affinity_set(3LGRP)</code> function sets the affinity that a
+LWP or set of LWPs have for a given lgroup.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;sys/lgrp_user.h&gt;
+int lgrp_affinity_set(idtype_t idtype, id_t id, lgrp_id_t lgrp,
+                      lgrp_affinity_t affinity);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>idtype</code> and <code>id</code> arguments specify the LWP or set of LWPs the
+<code>lgrp_affinity_set</code> function examines. If the value of <code>idtype</code>
+is <code>P_PID</code>, the <code>lgrp_affinity_set</code> function sets the lgroup
+affinity for all of the LWPs in the process whose process ID matches the
+value of the <code>id</code> argument to the affinity level specified in the
+<code>affinity</code> argument. If the value of <code>idtype</code> is <code>P_LWPID</code>, the
+<code>lgrp_affinity_set</code> function sets the lgroup affinity for the
+LWP of the current process whose LWP ID matches the value of the <code>id</code>
+argument to the affinity level specified in the <code>affinity</code> argument. If
+the value of <code>idtype</code> is <code>P_MYID</code>, the <code>lgrp_affinity_set</code>
+function sets the lgroup affinity for the current LWP or process to the
+affinity level specified in the <code>affinity</code> argument.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrp_affinity_set</code> function returns EINVAL when the given
+lgroup, affinity, or ID type is not valid. The
+<code>lgrp_affinity_set</code> function returns EPERM when the effective
+user of the calling process is not the superuser and the ID of the
+calling process does not match the real or effective user ID of one of
+the LWPs. The <code>lgrp_affinity_set</code> function returns ESRCH when a
+given lgroup or LWP is not found.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="examples-of-api-usage"><a class="anchor" href="#examples-of-api-usage"></a>2.8. Examples of API Usage</h3>
+<div class="paragraph">
+<p>This section contains code for example tasks that use the APIs that are
+described in this chapter.</p>
+</div>
+<div id="lgroups-ex-47" class="paragraph">
+<p>Move Memory to a Thread</p>
+</div>
+<div class="paragraph">
+<p>The following code sample moves the memory in the address range between
+<code>addr</code> and <code>addr</code>&#43;`len` near the next thread to touch that range.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;stdio.h&gt;
+#include &lt;sys/mman.h&gt;
+#include &lt;sys/types.h&gt;
+
+/*
+ * Move memory to thread
+ */
+mem_to_thread(caddr_t addr, size_t len)
+{
+    if (madvise(addr, len, MADV_ACCESS_LWP) &lt; 0)
+        perror("madvise");
+}</code></pre>
+</div>
+</div>
+<div id="lgroups-ex-48" class="paragraph">
+<p>Move a Thread to Memory</p>
+</div>
+<div class="paragraph">
+<p>This sample code uses the <code>meminfo</code> function to determine the lgroup of
+the physical memory backing the virtual page at the given address. The
+sample code then sets a strong affinity for that lgroup in an attempt to
+move the current thread near that memory.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;stdio.h&gt;
+#include &lt;sys/lgrp_user.h&gt;
+#include &lt;sys/mman.h&gt;
+#include &lt;sys/types.h&gt;
+
+/*
+ * Move a thread to memory
+ */
+thread_to_memory(caddr_t va)
+{
+    uint64_t    addr;
+    ulong_t     count;
+    lgrp_id_t   home;
+    uint64_t    lgrp;
+    uint_t      request;
+    uint_t      valid;
+
+    addr = (uint64_t)va;
+    count = 1;
+    request = MEMINFO_VLGRP;
+    if (meminfo(&amp;addr, 1, &amp;request, 1, &amp;lgrp, &amp;valid) != 0) {
+        perror("meminfo");
+        return (1);
+    }
+
+    if (lgrp_affinity_set(P_LWPID, P_MYID, lgrp, LGRP_AFF_STRONG) != 0) {
+        perror("lgrp_affinity_set");
+        return (2);
+    }
+
+    home = lgrp_home(P_LWPID, P_MYID);
+    if (home == -1) {
+        perror ("lgrp_home");
+        return (3);
+    }
+
+    if (home != lgrp)
+        return (-1);
+
+    return (0);
+}</code></pre>
+</div>
+</div>
+<div id="lgroups-ex-49" class="paragraph">
+<p>Walk the lgroup Hierarchy</p>
+</div>
+<div class="paragraph">
+<p>The following sample code walks through and prints out the lgroup
+hierarchy.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;sys/lgrp_user.h&gt;
+#include &lt;sys/types.h&gt;
+
+/*
+ * Walk and print lgroup hierarchy from given lgroup
+ * through all its descendants
+ */
+lgrp_walk(lgrp_cookie_t cookie, lgrp_id_t lgrp, lgrp_content_t content)
+{
+    lgrp_affinity_t    aff;
+    lgrp_id_t          *children;
+    processorid_t      *cpuids;
+    int                i;
+    int                ncpus;
+    int                nchildren;
+    int                nparents;
+    lgrp_id_t          *parents;
+    lgrp_mem_size_t    size;
+
+    /*
+     * Print given lgroup, caller's affinity for lgroup,
+     * and desired content specified
+     */
+    printf("LGROUP #%d:\n", lgrp);
+
+    aff = lgrp_affinity_get(P_LWPID, P_MYID, lgrp);
+    if (aff == -1)
+        perror ("lgrp_affinity_get");
+    printf("\tAFFINITY: %d\n", aff);
+
+    printf("CONTENT %d:\n", content);
+
+    /*
+     * Get CPUs
+     */
+    ncpus = lgrp_cpus(cookie, lgrp, NULL, 0, content);
+    printf("\t%d CPUS: ", ncpus);
+    if (ncpus == -1) {
+        perror("lgrp_cpus");
+        return (-1);
+    } else if (ncpus &gt; 0) {
+        cpuids = malloc(ncpus * sizeof (processorid_t));
+        ncpus = lgrp_cpus(cookie, lgrp, cpuids, ncpus, content);
+                if (ncpus == -1) {
+            free(cpuids);
+                        perror("lgrp_cpus");
+            return (-1);
+        }
+        for (i = 0; i &lt; ncpus; i++)
+            printf("%d ", cpuids[i]);
+        free(cpuids);
+    }
+    printf("\n");
+
+    /*
+     * Get memory size
+     */
+    printf("\tMEMORY: ");
+    size = lgrp_mem_size(cookie, lgrp, LGRP_MEM_SZ_INSTALLED, content);
+    if (size == -1) {
+        perror("lgrp_mem_size");
+        return (-1);
+    }
+    printf("installed bytes 0x%llx, ", size);
+    size = lgrp_mem_size(cookie, lgrp, LGRP_MEM_SZ_FREE, content);
+        if (size == -1) {
+        perror("lgrp_mem_size");
+        return (-1);
+    }
+    printf("free bytes 0x%llx\n", size);
+
+    /*
+     * Get parents
+     */
+    nparents = lgrp_parents(cookie, lgrp, NULL, 0);
+    printf("\t%d PARENTS: ", nparents);
+    if (nparents == -1) {
+        perror("lgrp_parents");
+        return (-1);
+    } else if (nparents &gt; 0) {
+        parents = malloc(nparents * sizeof (lgrp_id_t));
+        nparents = lgrp_parents(cookie, lgrp, parents, nparents);
+                if (nparents == -1) {
+            free(parents);
+                        perror("lgrp_parents");
+            return (-1);
+                }
+        for (i = 0; i &lt; nparents; i++)
+            printf("%d ", parents[i]);
+        free(parents);
+    }
+    printf("\n");
+
+    /*
+     * Get children
+     */
+    nchildren = lgrp_children(cookie, lgrp, NULL, 0);
+    printf("\t%d CHILDREN: ", nchildren);
+    if (nchildren == -1) {
+        perror("lgrp_children");
+        return (-1);
+    } else if (nchildren &gt; 0) {
+        children = malloc(nchildren * sizeof (lgrp_id_t));
+        nchildren = lgrp_children(cookie, lgrp, children, nchildren);
+                if (nchildren == -1) {
+            free(children);
+                        perror("lgrp_children");
+            return (-1);
+                }
+        printf("Children: ");
+        for (i = 0; i &lt; nchildren; i++)
+            printf("%d ", children[i]);
+        printf("\n");
+
+        for (i = 0; i &lt; nchildren; i++)
+            lgrp_walk(cookie, children[i], content);
+
+        free(children);
+    }
+    printf("\n");
+
+    return (0);
+}</code></pre>
+</div>
+</div>
+<div id="lgroups-ex-50" class="paragraph">
+<p>Find the Closest lgroup With Available Memory Outside a Given lgroup</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;sys/lgrp_user.h&gt;
+#include &lt;sys/types.h&gt;
+
+#define INT_MAX 2147483647
+
+/*
+ * Find next closest lgroup outside given one with available memory
+ */
+lgrp_next_nearest(lgrp_cookie_t cookie, lgrp_id_t from)
+{
+    lgrp_id_t          closest;
+    int                i;
+    int                latency;
+    int                lowest;
+    int                nparents;
+    lgrp_id_t          *parents;
+    lgrp_mem_size_t    size;
+
+    /*
+     * Get number of parents
+     */
+    nparents = lgrp_parents(cookie, from, NULL, 0);
+    if (nparents == -1) {
+        perror("lgrp_parents");
+        return (LGRP_NONE);
+    }
+
+    /*
+     * No parents, so current lgroup is next nearest
+     */
+    if (nparents == 0) {
+        return (from);
+    }
+
+    /*
+     * Get parents
+     */
+    parents = malloc(nparents * sizeof (lgrp_id_t));
+    nparents = lgrp_parents(cookie, from, parents, nparents);
+    if (nparents == -1) {
+        perror("lgrp_parents");
+        free(parents);
+        return (LGRP_NONE);
+        }
+
+    /*
+     * Find closest parent (ie. the one with lowest latency)
+     */
+    closest = LGRP_NONE;
+    lowest = INT_MAX;
+    for (i = 0; i &lt; nparents; i++) {
+        lgrp_id_t   lgrp;
+
+        /*
+         * See whether parent has any free memory
+         */
+        size = lgrp_mem_size(cookie, parents[i], LGRP_MEM_SZ_FREE,
+            LGRP_CONTENT_ALL);
+        if (size &gt; 0)
+            lgrp = parents[i];
+        else {
+            if (size == -1)
+                perror("lgrp_mem_size");
+
+            /*
+             * Find nearest ancestor if parent doesn't
+             * have any memory
+             */
+            lgrp = lgrp_next_nearest(cookie, parents[i]);
+            if (lgrp == LGRP_NONE)
+                continue;
+        }
+
+        /*
+         * Get latency within parent lgroup
+         */
+        latency = lgrp_latency_cookie(lgrp, lgrp);
+        if (latency == -1) {
+            perror("lgrp_latency_cookie");
+            continue;
+        }
+
+        /*
+         * Remember lgroup with lowest latency
+         */
+        if (latency &lt; lowest) {
+            closest = lgrp;
+            lowest = latency;
+        }
+    }
+
+    free(parents);
+    return (closest);
+}
+
+/*
+ * Find lgroup with memory nearest home lgroup of current thread
+ */
+lgrp_nearest(lgrp_cookie_t cookie)
+{
+    lgrp_id_t   home;
+    longlong_t  size;
+
+    /*
+     * Get home lgroup
+     */
+    home = lgrp_home(P_LWPID, P_MYID);
+
+    /*
+     * See whether home lgroup has any memory available in its hierarchy
+     */
+    size = lgrp_mem_size(cookie, home, LGRP_MEM_SZ_FREE,
+        LGRP_CONTENT_ALL);
+    if (size == -1)
+        perror("lgrp_mem_size");
+
+    /*
+     * It does, so return the home lgroup.
+     */
+    if (size &gt; 0)
+        return (home);
+
+    /*
+     * Otherwise, find next nearest lgroup outside of the home.
+     */
+    return (lgrp_next_nearest(cookie, home));
+}</code></pre>
+</div>
+</div>
+<div id="lgroups-ex-51" class="paragraph">
+<p>Find Nearest lgroup With Free Memory</p>
+</div>
+<div class="paragraph">
+<p>This example code finds the nearest lgroup with free memory to a given
+thread&#8217;s home lgroup.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">lgrp_nearest(lgrp_cookie_t cookie)
+{
+        lgrp_id_t         home;
+        longlong_t        size;
+
+        /*
+         * Get home lgroup
+         */
+
+        home = lgrp_home();
+
+        /*
+         * See whether home lgroup has any memory available in its hierarchy
+         */
+
+        if (lgrp_mem_size(cookie, lgrp, LGRP_MEM_SZ_FREE,
+            LGRP_CONTENT_ALL, &amp;size) == -1)
+                perror("lgrp_mem_size");
+
+        /*
+         * It does, so return the home lgroup.
+         */
+
+        if (size &gt; 0)
+                return (home);
+
+        /*
+         * Otherwise, find next nearest lgroup outside of the home.
+         */
+
+        return (lgrp_next_nearest(cookie, home));
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mpo-observability-tools"><a class="anchor" href="#mpo-observability-tools"></a>3. MPO Observability Tools</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This chapter describes the tools that are available to use the MPO
+functionality that is available in the illumos operating system.</p>
+</div>
+<div class="paragraph">
+<p>This chapter discusses the following topics:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="#the-pmadvise-utility">The utility</a> describes the tool that applies rules that
+define the memory use of a process.</p>
+</li>
+<li>
+<p><a href="#the-plgrp-tool">The tool</a> describes the tool that can display and set a
+thread&#8217;s affinity for a locality group.</p>
+</li>
+<li>
+<p><a href="#the-lgrpinfo-tool">The Tool</a> prints information about the lgroup hierarchy,
+contents, and characteristics.</p>
+</li>
+<li>
+<p><a href="#the-solarislgrp-module">The Module</a> describes a Perl interface to the locality
+group API that is described in <a href="#locality-group-apis">Locality Group APIs</a>.</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="the-pmadvise-utility"><a class="anchor" href="#the-pmadvise-utility"></a>3.1. The <code>pmadvise</code> utility</h3>
+<div class="paragraph">
+<p>The <code>pmadvise</code> utility applies rules to a process that define how that
+process uses memory. The <code>pmadvise</code> utility applies the rules, called
+<em>advice</em>, to the process with the <code>madvise(3C)</code> tool. This tool can
+apply advice to a specific subrange of locations in memory at a specific
+time. By contrast, the <code>madv.so.1(1)</code> tool applies the advice throughout
+the execution of the target program to all segments of a specified type.</p>
+</div>
+<div class="paragraph">
+<p>The <code>pmadvise</code> utility has the following options:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>f</code></dt>
+<dd>
+<p>This option takes control of the target process. This option overrides
+the control of any other process. See the <code>proc(1)</code> manual page.</p>
+</dd>
+<dt class="hdlist1"><code>o</code></dt>
+<dd>
+<p>This option specifies the advice to apply to the target process.
+Specify the advice in this format:
++</p>
+</dd>
+</dl>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>private=advice
+shared=advice
+heap=advice
+stack=advice
+address:length=advice</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>+
+The value of the ++&lt;++advice++&gt;++ term can be one of the following:
++</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre></pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>  +
+  You can specify an address and length to specify the subrange where
+  the advice applies. Specify the address in hexadecimal notation and
+  the length in bytes.
+  +
+  If you do not specify the length and the starting address refers to
+  the start of a segment, the `pmadvise` utility applies the advice to
+  that segment. You can qualify the length by adding the letters K, M,
+  G, T, P, or E to specify kilobytes, megabytes, gigabytes, terabytes,
+  or exabytes, respectively.
+`v`::
+  This option prints verbose output in the style of the `pmap(1)` tool
+  that shows the value and locations of the advice rules currently in
+  force.</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>pmadvise</code> tool attempts to process all legal options. When the
+pmadvise tool attempts to process an option that specifies an illegal
+address range, the tool prints an error message and skips that option.
+When the <code>pmadvise</code> tool finds a syntax error, it quits without
+processing any options and prints a usage message.</p>
+</div>
+<div class="paragraph">
+<p>When the advice for a specific region conflicts with the advice for a
+more general region, the advice for the more specific region takes
+precedence. Advice that specifies a particular address range has
+precedence over advice for the heap and stack regions, and advice for
+the heap and stack regions has precedence over advice for private and
+shared memory.</p>
+</div>
+<div class="paragraph">
+<p>The advice rules in each of the following groups are mutually exclusive
+from other advice rules within the same group:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>MADV_NORMAL, MADV_RANDOM, MADV_SEQUENTIAL
+MADV_WILLNEED, MADV_DONTNEED, MADV_FREE
+MADV_ACCESS_DEFAULT, MADV_ACCESS_LWP, MADV_ACCESS_MANY</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="the-plgrp-tool"><a class="anchor" href="#the-plgrp-tool"></a>3.2. The <code>plgrp</code> tool</h3>
+<div class="paragraph">
+<p>The <code>plgrp</code> utility can display or set the home lgroup and lgroup
+affinities for one or more processes, threads, or lightweight processes
+(LWPs). The system assigns a home lgroup to each thread on creation.
+When the system allocates a CPU or memory resource to a thread, it
+searches the lgroup hierarchy from the thread&#8217;s home lgroup for the
+nearest available resources to the thread&#8217;s home.</p>
+</div>
+<div class="paragraph">
+<p>The system chooses a home lgroup for each thread. The thread&#8217;s affinity
+for its home lgroup is initially set to none, or no affinity. When a
+thread sets an affinity for an lgroup in its processor set that is
+higher than the thread&#8217;s affinity for its home lgroup, the system moves
+the thread to that lgroup. The system does not move threads that are
+bound to a CPU. The system rehomes a thread to the lgroup in its
+processor set that has the highest affinity when the thread&#8217;s affinity
+for its home lgroup is removed (set to none).</p>
+</div>
+<div class="paragraph">
+<p>For a full description of the different levels of lgroup affinity and
+their semantics, see the <code>lgrp_affinity_set(3LGRP)</code> manual page.</p>
+</div>
+<div class="paragraph">
+<p>The <code>plgrp</code> tool supports the following options:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>a</code> &lt;lgroup list&gt;</dt>
+<dd>
+<p>This option displays the affinities of the processes or threads that
+you specify for the lgroups in the list.</p>
+</dd>
+<dt class="hdlist1"><code>A</code>&lt;lgroup list&gt;/<code>none|weak|strong[,&#8230;&#8203;]</code></dt>
+<dd>
+<p>This option sets the affinity of the processes or threads that you
+specify for the lgroups in the list. You can use a comma separated
+list of &lt;lgroup&gt;/&lt;affinity&gt; assignments to set several
+affinities at once.</p>
+</dd>
+<dt class="hdlist1"><code>F</code></dt>
+<dd>
+<p>This option takes control of the target process. This option overrides
+the control of any other process. See the <code>proc(1)</code> manual page.</p>
+</dd>
+<dt class="hdlist1"><code>h</code></dt>
+<dd>
+<p>This option returns the home lgroup of the processes or threads that
+you specify. This is the default behavior of the <code>plgrp</code> tool when you
+do not specify any options.</p>
+</dd>
+<dt class="hdlist1"><code>H</code> &lt;lgroup list&gt;</dt>
+<dd>
+<p>This option sets the home lgroup of the processes or threads that you
+specify. This option sets a strong affinity for the listed lgroup. If
+you specify more than one lgroup, the <code>plgrp</code> utility will attempt to
+home the threads to the lgroups in a round robin fashion.</p>
+</dd>
+</dl>
+</div>
+<div class="sect3">
+<h4 id="specifying-lgroups"><a class="anchor" href="#specifying-lgroups"></a>3.2.1. Specifying Lgroups</h4>
+<div class="paragraph">
+<p>The value of the &lt;lgroup list&gt; variable is a comma separated
+list of one or more of the following attributes:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>lgroup ID</p>
+</li>
+<li>
+<p>Range of lgroup IDs, specified as &lt;start lgroup ID&gt;-&lt;end
+lgroup ID&gt;</p>
+</li>
+<li>
+<p><code>all</code></p>
+</li>
+<li>
+<p><code>root</code></p>
+</li>
+<li>
+<p><code>leaves</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The <code>all</code> keyword represents all of the lgroup IDs in the system. The
+<code>root</code> keyword represents the ID of the root lgroup. The <code>leaves</code>
+keyword represents the IDs of all of the leaf lgroups. A leaf lgroup is
+an lgroup that does not have any children.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="specifying-process-and-thread-arguments"><a class="anchor" href="#specifying-process-and-thread-arguments"></a>3.2.2. Specifying Process and Thread Arguments</h4>
+<div class="paragraph">
+<p>The <code>plgrp</code> utility takes one or more space-separated processes or
+threads as arguments. You can specify processes and threads in a the
+same syntax that the <code>proc(1)</code> tools use. You can specify a process ID
+as an integer, with the syntax &lt;pid&gt; or <code>/proc/</code>&lt;pid&gt;.
+You can use shell expansions with the <code>/proc/</code>&lt;pid&gt; syntax. When
+you give a process ID alone, the arguments to the <code>plgrp</code> utility
+include all of the threads of that process.</p>
+</div>
+<div class="paragraph">
+<p>You can specify a thread explicitly by specifying the process ID and
+thread ID with the syntax &lt;pid&gt;/&lt;lwpid&gt;. You can specify
+multiple threads of a process by defining ranges with can be selected at
+once by using the <code>-</code> character to define a range, or with a
+comma-separated list. To specify threads 1, 2, 7, 8, and 9 of a process
+whose process ID is &lt;pid&gt;, use the syntax
+&lt;pid&gt;/<code>1,2,7-9</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="the-lgrpinfo-tool"><a class="anchor" href="#the-lgrpinfo-tool"></a>3.3. The <code>lgrpinfo</code> Tool</h3>
+<div class="paragraph">
+<p>The <code>lgrpinfo</code> tool prints information about the lgroup hierarchy,
+contents, and characteristics. The <code>lgrpinfo</code> tool is a Perl script that
+requires the <code>Solaris::Lgrp</code> module. This tool uses the <code>liblgrp(3LIB)</code>
+API to get the information from the system and displays it in the
+human-readable form.</p>
+</div>
+<div class="paragraph">
+<p>The <code>lgrpinfo</code> tool prints general information about all of the lgroups
+in the system when you call it without any arguments. When you pass
+lgroup IDs to the <code>lgrpinfo</code> tool at the command line, the tool returns
+information about the lgroups that you specify. You can specify lgroups
+with their lgroup IDs or with one of the following keywords:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>all</code></dt>
+<dd>
+<p>This keyword specifies all lgroups and is the default behavior.</p>
+</dd>
+<dt class="hdlist1"><code>root</code></dt>
+<dd>
+<p>This keyword specifies the root lgroup.</p>
+</dd>
+<dt class="hdlist1"><code>leaves</code></dt>
+<dd>
+<p>This keyword specifies all of the leaf lgroups. A leaf lgroup is an
+lgroup that has no children in the lgroup hierarchy.</p>
+</dd>
+<dt class="hdlist1"><code>intermediate</code></dt>
+<dd>
+<p>This keyword specifies all of the intermediate lgroups. An
+intermediate lgroup is an lgroup that has a parent and children.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>When the <code>lgrpinfo</code> tool receives an invalid lgroup ID, the tool prints
+a message with the invalid ID and continues processing any other lgroups
+that are passed in the command line. When the <code>lgrpinfo</code> tool finds no
+valid lgroups in the arguments, it exits with a status of <code>2</code>.</p>
+</div>
+<div class="sect3">
+<h4 id="options-for-the-lgrpinfo-tool"><a class="anchor" href="#options-for-the-lgrpinfo-tool"></a>3.3.1. Options for the <code>lgrpinfo</code> Tool</h4>
+<div class="paragraph">
+<p>When you call the <code>lgrpinfo</code> tool without any arguments, the tool&#8217;s
+behavior is equivalent to using the options <code>celmrt all</code>. The valid
+options for the <code>lgrpinfo</code> tool are:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>a</code></dt>
+<dd>
+<p>This option prints the topology, CPU, memory, load and latency
+information for the specified lgroup IDs. This option combines the
+behaviors of the <code>tcemrlL</code> options, unless you also specify the <code>T</code>
+option. When you specify the <code>T</code> option, the behavior of the <code>a</code>
+option does not include the behavior of the <code>t</code> option.</p>
+</dd>
+<dt class="hdlist1"><code>c</code></dt>
+<dd>
+<p>This option prints the CPU information.</p>
+</dd>
+<dt class="hdlist1"><code>C</code></dt>
+<dd>
+<p>This option replaces each lgroup in the list with its children. You
+cannot combine this option with the <code>P</code> or <code>T</code> options. When you do
+not specify any arguments, the tool applies this option to all
+lgroups.</p>
+</dd>
+<dt class="hdlist1"><code>e</code></dt>
+<dd>
+<p>This option prints lgroup load averages for leaf lgroups.</p>
+</dd>
+<dt class="hdlist1"><code>G</code></dt>
+<dd>
+<p>This option prints the OS view of the lgroup hierarchy. The tool&#8217;s
+default behavior displays the caller&#8217;s view of the lgroup hierarchy.
+The caller&#8217;s view only includes the resources that the caller can use.
+See the <code>lgrp_init(3LGRP)</code> manual page for more details on the OS
+and caller&#8217;s view.</p>
+</dd>
+<dt class="hdlist1"><code>h</code></dt>
+<dd>
+<p>This option prints the help message for the tool.</p>
+</dd>
+<dt class="hdlist1"><code>I</code></dt>
+<dd>
+<p>This option prints only IDs that match the IDs you specify. You can
+combine this option with the <code>c</code>, <code>G</code>, <code>C</code>, or <code>P</code> options. When you
+specify the <code>c</code> option, the tool prints the list of CPUs that are in
+all of the matching lgroups. When you do not specify the <code>c</code> option,
+the tool displays the IDs for the matching lgroups. When you do not
+specify any arguments, the tool applies this option to all lgroups.</p>
+</dd>
+<dt class="hdlist1"><code>l</code></dt>
+<dd>
+<p>This option prints information about lgroup latencies. The latency
+value given for each lgroup is defined by the operating system and is
+platform-specific. It can only be used for relative comparison of
+lgroups on the running system. It does not necessarily represent the
+actual latency between hardware devices and may not be applicable
+across platforms.</p>
+</dd>
+<dt class="hdlist1"><code>L</code></dt>
+<dd>
+<p>This option prints the lgroup latency table. This table shows the
+relative latency from each lgroup to each of the other lgroups.</p>
+</dd>
+<dt class="hdlist1"><code>m</code></dt>
+<dd>
+<p>This option prints memory information. The tool reports memory sizes
+in the units that give a size result in the integer range from 0 to</p>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>You can override this behavior by using the <code>u</code> option. The tool
+will only display fractional results for values smaller than 10.</p>
+</li>
+</ol>
+</div>
+</dd>
+<dt class="hdlist1"><code>P</code></dt>
+<dd>
+<p>This option replaces each lgroup in the list with its parent or
+parents. You cannot combine this option with the <code>C</code> or <code>T</code> options.
+When you do not specify any arguments, the tool applies this option to
+all lgroups.</p>
+</dd>
+<dt class="hdlist1"><code>r</code></dt>
+<dd>
+<p>This option prints information about lgroup resources. When you
+specify the <code>T</code> option, the tool displays information about the
+resources of the intermediate lgroups only.</p>
+</dd>
+<dt class="hdlist1"><code>t</code></dt>
+<dd>
+<p>This option prints information about lgroup topology.</p>
+</dd>
+<dt class="hdlist1"><code>T</code></dt>
+<dd>
+<p>This option prints the lgroup topology of a system graphically, as a
+tree. You can only use this option with the <code>a</code>, <code>c</code>, <code>e</code>, <code>G</code>, <code>l</code>,
+<code>L</code>, <code>m</code>, <code>r</code>, and <code>u</code> options. To restrict the output to intermediate
+lgroups, use the <code>r</code> option. Omit the <code>t</code> option when you combine the
+<code>T</code> option with the <code>a</code> option. This option does not print information
+for the root lgroup unless it is the only lgroup.</p>
+</dd>
+<dt class="hdlist1"><code>u</code>&lt;units&gt;</dt>
+<dd>
+<p>This option specifies memory units. The value of the &lt;units&gt;
+argument can be <code>b</code>, <code>k</code>, <code>m</code>, <code>g</code>, <code>t</code>, <code>p</code>, or <code>e</code> for bytes,
+kilobytes, megabytes, gigabytes, terabytes, petabytes, or exabytes,
+respectively.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="the-solarislgrp-module"><a class="anchor" href="#the-solarislgrp-module"></a>3.4. The <code>Solaris::lgrp</code> Module</h3>
+<div class="paragraph">
+<p>This Perl module provides a Perl interface to the lgroup APIs that are
+in <code>liblgrp</code>. This interface provides a way to traverse the lgroup
+hierarchy, discover its contents and characteristics, and set a thread&#8217;s
+affinity for an lgroup. The module gives access to various constants and
+functions defined in the <code>lgrp_user.h</code> header file. The module
+provides the procedural interface and the object interface to the
+library.</p>
+</div>
+<div class="paragraph">
+<p>The default behavior of this module does not export anything. You can
+use the following tags to selectively import the constants and functions
+that are defined in this module:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>:LGRP_CONSTANTS</code></dt>
+<dd>
+<p><code>LGRP_AFF_NONE</code>, <code>LGRP_AFF_STRONG</code>,
+<code>LGRP_AFF_WEAK</code>, <code>LGRP_CONTENT_DIRECT</code>,
+<code>LGRP_CONTENT_HIERARCHY</code>, <code>LGRP_MEM_SZ_FREE</code>,
+<code>LGRP_MEM_SZ_INSTALLED</code>, <code>LGRP_VER_CURRENT</code>,
+<code>LGRP_VER_NONE</code>, <code>LGRP_VIEW_CALLER</code>,
+<code>LGRP_VIEW_OS</code>, <code>LGRP_NONE</code>, <code>LGRP_RSRC_CPU</code>,
+<code>LGRP_RSRC_MEM</code>, <code>LGRP_CONTENT_ALL</code>,
+<code>LGRP_LAT_CPU_TO_MEM</code></p>
+</dd>
+<dt class="hdlist1"><code>:PROC_CONSTANTS</code></dt>
+<dd>
+<p><code>P_PID</code>, <code>P_LWPID</code>, <code>P_MYID</code></p>
+</dd>
+<dt class="hdlist1"><code>:CONSTANTS</code></dt>
+<dd>
+<p><code>:LGRP_CONSTANTS</code>, <code>:PROC_CONSTANTS</code></p>
+</dd>
+<dt class="hdlist1"><code>:FUNCTIONS</code></dt>
+<dd>
+<p><code>lgrp_affinity_get</code>, <code>lgrp_affinity_set</code>,
+<code>lgrp_children</code>, <code>lgrp_cookie_stale</code>, <code>lgrp_cpus</code>,
+<code>lgrp_fini</code>, <code>lgrp_home</code>, <code>lgrp_init</code>, <code>lgrp_latency</code>,
+<code>lgrp_latency_cookie</code>, <code>lgrp_mem_size</code>,
+<code>lgrp_nlgrps</code>, <code>lgrp_parents</code>, <code>lgrp_root</code>,
+<code>lgrp_version</code>, <code>lgrp_view</code>, <code>lgrp_resources</code>,
+<code>lgrp_lgrps</code>, <code>lgrp_leaves</code>, <code>lgrp_isleaf</code>,
+<code>lgrp_lgrps</code>, <code>lgrp_leaves</code>.</p>
+</dd>
+<dt class="hdlist1"><code>:ALL</code></dt>
+<dd>
+<p><code>:CONSTANTS</code>, <code>:FUNCTIONS</code></p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The Perl module has the following methods:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>new</code></p>
+</li>
+<li>
+<p><code>cookie</code></p>
+</li>
+<li>
+<p><code>stale</code></p>
+</li>
+<li>
+<p><code>view</code></p>
+</li>
+<li>
+<p><code>root</code></p>
+</li>
+<li>
+<p><code>children</code></p>
+</li>
+<li>
+<p><code>parents</code></p>
+</li>
+<li>
+<p><code>nlgrps</code></p>
+</li>
+<li>
+<p><code>mem_size</code></p>
+</li>
+<li>
+<p><code>cpus</code></p>
+</li>
+<li>
+<p><code>isleaf</code></p>
+</li>
+<li>
+<p><code>resources</code></p>
+</li>
+<li>
+<p><code>version</code></p>
+</li>
+<li>
+<p><code>home</code></p>
+</li>
+<li>
+<p><code>affinity_get</code></p>
+</li>
+<li>
+<p><code>affinity_set</code></p>
+</li>
+<li>
+<p><code>lgrps</code></p>
+</li>
+<li>
+<p><code>leaves</code></p>
+</li>
+<li>
+<p><code>latency</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>You can export constants with the <code>:CONSTANTS</code> or <code>:ALL</code> tags. You can
+use any of the constants in the following list in Perl programs.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>LGRP_NONE</code></p>
+</li>
+<li>
+<p><code>LGRP_VER_CURRENT</code></p>
+</li>
+<li>
+<p><code>LGRP_VER_NONE</code></p>
+</li>
+<li>
+<p><code>LGRP_VIEW_CALLER</code></p>
+</li>
+<li>
+<p><code>LGRP_VIEW_OS</code></p>
+</li>
+<li>
+<p><code>LGRP_AFF_NONE</code></p>
+</li>
+<li>
+<p><code>LGRP_AFF_STRONG</code></p>
+</li>
+<li>
+<p><code>LGRP_AFF_WEAK</code></p>
+</li>
+<li>
+<p><code>LGRP_CONTENT_DIRECT</code></p>
+</li>
+<li>
+<p><code>LGRP_CONTENT_HIERARCHY</code></p>
+</li>
+<li>
+<p><code>LGRP_MEM_SZ_FREE</code></p>
+</li>
+<li>
+<p><code>LGRP_MEM_SZ_INSTALLED</code></p>
+</li>
+<li>
+<p><code>LGRP_RSRC_CPU</code></p>
+</li>
+<li>
+<p><code>LGRP_RSRC_MEM</code></p>
+</li>
+<li>
+<p><code>LGRP_CONTENT_ALL</code></p>
+</li>
+<li>
+<p><code>LGRP_LAT_CPU_TO_MEM</code></p>
+</li>
+<li>
+<p><code>P_PID</code></p>
+</li>
+<li>
+<p><code>P_LWPID</code></p>
+</li>
+<li>
+<p><code>P_MYID</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>When an underlying library function fails, the functions in this module
+return either <code>undef</code> or an empty list. The module can use the following
+error codes:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>EINVAL</code></dt>
+<dd>
+<p>The value supplied is not valid.</p>
+</dd>
+<dt class="hdlist1"><code>ENOMEM</code></dt>
+<dd>
+<p>There was not enough system memory to complete an operation.</p>
+</dd>
+<dt class="hdlist1"><code>ESRCH</code></dt>
+<dd>
+<p>The specified process or thread was not found.</p>
+</dd>
+<dt class="hdlist1"><code>EPERM</code></dt>
+<dd>
+<p>The effective user of the calling process does not have the
+appropriate privileges, and its real or effective user ID does not
+match the real or effective user ID of one of the threads.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="document-license"><a class="anchor" href="#document-license"></a>4. Document License</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_public_documentation_license_pdl_version_1_01"><a class="anchor" href="#_public_documentation_license_pdl_version_1_01"></a>4.1. Public Documentation License (PDL), Version 1.01</h3>
+<div class="paragraph">
+<p><span class="first-word">1.0  DEFINITIONS.</span></p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="paragraph">
+<p>1.1.  “Commercial Use” means distribution or otherwise making the
+Documentation available to a third party.</p>
+</div>
+<div class="paragraph">
+<p>1.2.  “Contributor” means a person or entity who creates or contributes
+to the creation of Modifications.</p>
+</div>
+<div class="paragraph">
+<p>1.3.  “Documentation” means the Original Documentation or Modifications
+or the combination of the Original Documentation and Modifications, in
+each case including portions thereof.</p>
+</div>
+<div class="paragraph">
+<p>1.4.  “Editable Form” means the preferred form of Documentation for
+making Modifications to such documentation. The Documentation can be in
+an electronic, compressed or archival form, provided the appropriate
+decompression or de-archiving software is widely available for no
+charge.</p>
+</div>
+<div class="paragraph">
+<p>1.5.  “Electronic Distribution Mechanism” means a mechanism generally
+accepted for the electronic transfer of data.</p>
+</div>
+<div class="paragraph">
+<p>1.6.  “Initial Writer” means the individual or entity identified as the
+Initial Writer in the notice required by the Appendix.</p>
+</div>
+<div class="paragraph">
+<p>1.7.  “Larger Work” means a work which combines Documentation or
+portions thereof with documentation or other writings not governed by
+the terms of this License.</p>
+</div>
+<div class="paragraph">
+<p>1.8.  “License” means this document.</p>
+</div>
+<div class="paragraph">
+<p>1.9.  “Modifications” means any addition to or deletion from the
+substance or structure of either the Original Documentation or any
+previous Modifications, such as a translation, abridgment, condensation,
+or any other form in which the Original Documentation or previous
+Modifications may be recast, transformed or adapted. A work consisting
+of editorial revisions, annotations, elaborations, and other
+modifications which, as a whole represent an original work of
+authorship, is a Modification. For example, when Documentation is
+released as a series of documents, a Modification is:</p>
+</div>
+<div class="paragraph">
+<p>A.  Any addition to or deletion from the contents of the Original
+Documentation or previous Modifications.</p>
+</div>
+<div class="paragraph">
+<p>B.  Any new documentation that contains any part of the Original
+Documentation or previous Modifications.</p>
+</div>
+<div class="paragraph">
+<p>1.10.  “Original Documentation” means documentation described as
+Original Documentation in the notice required by the Appendix, and
+which, at the time of its release under this License is not already
+Documentation governed by this License.</p>
+</div>
+<div class="paragraph">
+<p>1.11.  “You” (or “Your”) means an individual or a legal entity
+exercising rights under, and complying with all of the terms of, this
+License or a future version of this License issued under Section 5.0
+(“Versions of the License”). For legal entities, “You” includes any
+entity which controls, is controlled by, or is under common control with
+You. For purposes of this definition, “control” means (a) the power,
+direct or indirect, to cause the direction or management of such entity,
+whether by contract or otherwise, or (b) ownership of more than fifty
+percent (50%) of the outstanding shares or beneficial ownership of such
+entity.</p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p><span class="first-word">2.0  LICENSE GRANTS.</span></p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">2.1  Initial Writer Grant.</span></p>
+</div>
+<div class="paragraph">
+<p>The Initial Writer hereby grants You a world-wide, royalty-free,
+non-exclusive license to use, reproduce, prepare Modifications of,
+compile, publicly perform, publicly display, demonstrate, market,
+disclose and distribute the Documentation in any form, on any media or
+via any Electronic Distribution Mechanism or other method now known or
+later discovered, and to sublicense the foregoing rights to third
+parties through multiple tiers of sublicensees in accordance with the
+terms of this License.</p>
+</div>
+<div class="paragraph">
+<p>The license rights granted in this Section 2.1 (“Initial Writer Grant”)
+are effective on the date Initial Writer first distributes Original
+Documentation under the terms of this License.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">2.2.  Contributor Grant.</span></p>
+</div>
+<div class="paragraph">
+<p>Each Contributor hereby grants You a world-wide, royalty-free,
+non-exclusive license to use, reproduce, prepare Modifications of,
+compile, publicly perform, publicly display, demonstrate, market,
+disclose and distribute the Documentation in any form, on any media or
+via any Electronic Distribution Mechanism or other method now known or
+later discovered, and to sublicense the foregoing rights to third
+parties through multiple tiers of sublicensees in accordance with the
+terms of this License.</p>
+</div>
+<div class="paragraph">
+<p>The license rights granted in this Section 2.2 (“Contributor Grant”) are
+effective on the date Contributor first makes Commercial Use of the
+Documentation.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">3.0  DISTRIBUTION OBLIGATIONS.</span></p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">3.1.  Application of License.</span></p>
+</div>
+<div class="paragraph">
+<p>The Modifications which You create or to which You contribute are
+governed by the terms of this License, including without limitation
+Section 2.2 (“Contributor Grant”). The Documentation may be distributed
+only under the terms of this License or a future version of this License
+released in accordance with Section 5.0 (“Versions of the License”), and
+You must include a copy of this License with every copy of the
+Documentation You distribute. You may not offer or impose any terms that
+alter or restrict the applicable version of this License or the
+recipients' rights hereunder. However, You may include an additional
+document offering the additional rights described in Section 3.5
+(“Required Notices”).</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">3.2.  Availability of Documentation.</span></p>
+</div>
+<div class="paragraph">
+<p>Any Modification which You create or to which You contribute must be
+made available publicly in Editable Form under the terms of this License
+via a fixed medium or an accepted Electronic Distribution Mechanism.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">3.3.  Description of Modifications.</span></p>
+</div>
+<div class="paragraph">
+<p>All Documentation to which You contribute must identify the changes You
+made to create that Documentation and the date of any change. You must
+include a prominent statement that the Modification is derived, directly
+or indirectly, from Original Documentation provided by the Initial
+Writer and include the name of the Initial Writer in the Documentation
+or via an electronic link that describes the origin or ownership of the
+Documentation. The foregoing change documentation may be created by
+using an electronic program that automatically tracks changes to the
+Documentation. You must make all such changes and required information
+publicly available for at least five years following release of the
+changed Documentation.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">3.4.  Intellectual Property Matters.</span></p>
+</div>
+<div class="paragraph">
+<p>Contributor represents that Contributor believes that Contributor&#8217;s
+Modifications are Contributor&#8217;s original creation(s), Contributor has
+sufficient rights to grant the rights conveyed by this License, or both
+of these statements are true.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">3.5.  Required Notices.</span></p>
+</div>
+<div class="paragraph">
+<p>You must duplicate the notice in the Appendix in each file of the
+Documentation. If it is not possible to put such notice in a particular
+Documentation file due to its structure, then You must include such
+notice in a location (such as a relevant directory) where a reader would
+be likely to look for such a notice, for example, via a hyperlink in
+each file of the Documentation that takes the reader to a page that
+describes the origin and ownership of the Documentation. If You created
+one or more Modification(s) You may add your name as a Contributor to
+the notice described in the Appendix.</p>
+</div>
+<div class="paragraph">
+<p>You must also duplicate this License in any Documentation file (or with
+a hyperlink in each file of the Documentation) where You describe
+recipients' rights or ownership rights.</p>
+</div>
+<div class="paragraph">
+<p>You may choose to offer, and to charge a fee for, warranty, support,
+indemnity or liability obligations to one or more recipients of
+Documentation. However, You may do so only on Your own behalf, and not
+on behalf of the Initial Writer or any Contributor. You must make it
+absolutely clear than any such warranty, support, indemnity or liability
+obligation is offered by You alone, and You hereby agree to indemnify
+the Initial Writer and every Contributor for any liability incurred by
+the Initial Writer or such Contributor as a result of warranty, support,
+indemnity or liability terms You offer.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">3.6.  Larger Works.</span></p>
+</div>
+<div class="paragraph">
+<p>You may create a Larger Work by combining Documentation with other
+documents not governed by the terms of this License and distribute the
+Larger Work as a single product. In such a case, You must make sure the
+requirements of this License are fulfilled for the Documentation.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">4.0  APPLICATION OF THIS LICENSE.</span></p>
+</div>
+<div class="paragraph">
+<p>This License applies to Documentation to which the Initial Writer has
+attached this License and the notice in the Appendix.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">5.0  TRADEMARKS.</span></p>
+</div>
+<div class="paragraph">
+<p>This license does not grant permission to use the trade names,
+trademarks, service marks, logos, or product names of the Initial Writer
+or any Contributor, except as required for reasonable and customary use
+in describing the Origin of the Documentation and reproducing the
+content of any of the notices described in the Appendix.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">6.0  VERSIONS OF THE LICENSE.</span></p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">6.1.  New Versions.</span></p>
+</div>
+<div class="paragraph">
+<p>Initial Writer may publish revised or new versions of the License from
+time to time. Each version will be given a distinguishing version
+number.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">6.2.  Effect of New Versions.</span></p>
+</div>
+<div class="paragraph">
+<p>Once Documentation has been published under a particular version of the
+License, You may always continue to use it under the terms of that
+version. You may also choose to use such Documentation under the terms
+of any subsequent version of the License published by
+__________________[Insert name of the foundation, company, Initial
+Writer, or whoever may modify this License]. No one other than
+_________________ [Insert name of the foundation, company,
+Initial Writer, or whoever may modify this License] has the right to
+modify the terms of this License. Filling in the name of the Initial
+Writer, Original Documentation or Contributor in the notice described in
+the Appendix shall not be deemed to be Modifications of this License.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">7.0  DISCLAIMER OF WARRANTY.</span></p>
+</div>
+<div class="paragraph">
+<p>DOCUMENTATION IS PROVIDED UNDER THIS LICENSE ON AN “AS IS” BASIS,
+WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING,
+WITHOUT LIMITATION, WARRANTIES THAT THE DOCUMENTATION IS FREE OF
+DEFECTS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE OR NON-INFRINGING.
+THE ENTIRE RISK AS TO THE QUALITY, ACCURACY, AND PERFORMANCE OF THE
+DOCUMENTATION IS WITH YOU. SHOULD ANY DOCUMENTATION PROVE DEFECTIVE IN
+ANY RESPECT, YOU (NOT THE INITIAL WRITER OR ANY OTHER CONTRIBUTOR)
+ASSUME THE COST OF ANY NECESSARY SERVICING, REPAIR OR CORRECTION. THIS
+DISCLAIMER OF WARRANTY CONSTITUTES AN ESSENTIAL PART OF THIS LICENSE. NO
+USE OF ANY DOCUMENTATION IS AUTHORIZED HEREUNDER EXCEPT UNDER THIS
+DISCLAIMER.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">8.0  TERMINATION.</span></p>
+</div>
+<div class="paragraph">
+<p>This License and the rights granted hereunder will terminate
+automatically if You fail to comply with terms herein and fail to cure
+such breach within 30 days of becoming aware of the breach. All
+sublicenses to the Documentation which are properly granted shall
+survive any termination of this License. Provisions which, by their
+nature, must remain in effect beyond the termination of this License
+shall survive.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">9.0  LIMITATION OF LIABILITY.</span></p>
+</div>
+<div class="paragraph">
+<p>UNDER NO CIRCUMSTANCES AND UNDER NO LEGAL THEORY, WHETHER IN TORT
+(INCLUDING NEGLIGENCE), CONTRACT, OR OTHERWISE, SHALL THE INITIAL
+WRITER, ANY OTHER CONTRIBUTOR, OR ANY DISTRIBUTOR OF DOCUMENTATION, OR
+ANY SUPPLIER OF ANY OF SUCH PARTIES, BE LIABLE TO ANY PERSON FOR ANY
+DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES OF ANY
+CHARACTER INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF GOODWILL,
+WORK STOPPAGE, COMPUTER FAILURE OR MALFUNCTION, OR ANY AND ALL OTHER
+DAMAGES OR LOSSES ARISING OUT OF OR RELATING TO THE USE OF THE
+DOCUMENTATION, EVEN IF SUCH PARTY SHALL HAVE BEEN INFORMED OF THE
+POSSIBILITY OF SUCH DAMAGES.</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">10.0  U.S. GOVERNMENT END USERS.</span></p>
+</div>
+<div class="paragraph">
+<p>If Documentation is being acquired by or on behalf of the U.S.
+Government or by a U.S. Government prime contractor or subcontractor (at
+any tier), then the Government&#8217;s rights in Documentation will be only as
+set forth in this Agreement; this is in accordance with 48 CFR 227.7201
+through 227.7202-4 (for Department of Defense (DOD) acquisitions) and
+with 48 CFR 2.101 and 12.212 (for non-DOD acquisitions).</p>
+</div>
+<div class="paragraph">
+<p><span class="first-word">11.0  MISCELLANEOUS.</span></p>
+</div>
+<div class="paragraph">
+<p>This License represents the complete agreement concerning the subject
+matter hereof. If any provision of this License is held to be
+unenforceable, such provision shall be reformed only to the extent
+necessary to make it enforceable. This License shall be governed by
+California law, excluding its conflict-of-law provisions. With respect
+to disputes or any litigation relating to this License, the losing party
+is responsible for costs, including without limitation, court costs and
+reasonable attorneys' fees and expenses. The application of the United
+Nations Convention on Contracts for the International Sale of Goods is
+expressly excluded. Any law or regulation which provides that the
+language of a contract shall be construed against the drafter shall not
+apply to this License.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_public_documentation_license_notice"><a class="anchor" href="#_public_documentation_license_notice"></a>4.2. Public Documentation License Notice</h3>
+<div class="paragraph">
+<p>The contents of this Documentation are subject to the Public
+Documentation License Version 1.01 (the “License”); you may only use
+this Documentation if you comply with the terms of this License. A copy
+of the License is available at <a href="http://illumos.org/license/PDL" class="bare">http://illumos.org/license/PDL</a></p>
+</div>
+<div class="paragraph">
+<p>The Original Documentation is the Memory and Thread Placement
+Optimization Developer&#8217;s Guide. The Initial Writer of the Original
+Documentation is Sun Microsystems Copyright &#169; 2003-2009. All Rights
+Reserved. (Initial Writer contact(s): <a href="http://sun.com" class="bare">http://sun.com</a>).</p>
+</div>
+<div class="paragraph">
+<p>Contributor(s): Joyent, Inc. Portions created by Joyent, Inc. are
+Copyright &#169; 2016. All Rights Reserved. (Contributor contact(s):
+<a href="http://joyent.com" class="bare">http://joyent.com</a>).</p>
+</div>
+<div class="paragraph">
+<p>This documentation was derived from the source at
+<a href="https://github.com/rmustacc/illumos-docbooks">illumos docbooks</a>. For full
+changes as required by the PDL, please see the above URL.</p>
+</div>
+<script src="scroll-spy.js"></script>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+Last updated 2025-07-15 04:25:05 UTC
+</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.3/highlight.min.js"></script>
+<script>
+if (!hljs.initHighlighting.called) {
+  hljs.initHighlighting.called = true
+  ;[].slice.call(document.querySelectorAll('pre.highlight > code[data-lang]')).forEach(function (el) { hljs.highlightBlock(el) })
+}
+</script>
+</body>
+</html>
